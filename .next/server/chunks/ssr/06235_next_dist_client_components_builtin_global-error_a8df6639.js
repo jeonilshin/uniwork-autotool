@@ -1,0 +1,3 @@
+module.exports=[99346,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(22346);a.n(d("[project]/Desktop/uniwork-autotool/node_modules/next/dist/client/components/builtin/global-error.js <module evaluation>"))},33350,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(22346);a.n(d("[project]/Desktop/uniwork-autotool/node_modules/next/dist/client/components/builtin/global-error.js"))},63567,a=>{"use strict";a.i(99346);var b=a.i(33350);a.n(b)}];
+
+//# sourceMappingURL=06235_next_dist_client_components_builtin_global-error_a8df6639.js.map

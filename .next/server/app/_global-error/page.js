@@ -1,0 +1,11 @@
+var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/_global-error/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__6a1542e8._.js")
+R.c("server/chunks/ssr/Desktop_uniwork-autotool_946ac7c0._.js")
+R.c("server/chunks/ssr/06235_next_dist_d12bcd52._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__b92c8525._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__753d02cf._.js")
+R.c("server/chunks/ssr/06235_next_dist_ad40589d._.js")
+R.c("server/chunks/ssr/Desktop_uniwork-autotool_src_app_5b7849c3._.js")
+R.c("server/chunks/ssr/3d860_uniwork-autotool__next-internal_server_app__global-error_page_actions_38877763.js")
+R.m(73794)
+module.exports=R.m(73794).exports
