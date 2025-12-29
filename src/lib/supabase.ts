@@ -18,6 +18,13 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface InquiredInfo {
+  name: string;
+  price: number | null;
+  contact: string;
+  source: string;
+}
+
 export interface InventoryItem {
   id: string;
   product_name: string;
@@ -32,6 +39,9 @@ export interface InventoryItem {
   freight_type: FreightType;
   vat_type: VatType;
   is_inquired: boolean;
+  inquired_list: InquiredInfo[] | null;
+  delivered_at: string | null;
+  payment_collected: boolean;
   created_at: string;
   user_id: string;
 }
@@ -117,8 +127,29 @@ export async function addItem(item: Omit<InventoryItem, "id" | "created_at">): P
 }
 
 export async function updateItemStatus(id: string, status: ItemStatus): Promise<InventoryItem> {
-  const { data, error } = await supabase.from("items").update({ status }).eq("id", id).select().single();
-  if (error) throw error;
+  const updateData: { status: ItemStatus; delivered_at?: string | null } = { status };
+  // Set delivered_at when status changes to delivered
+  if (status === 'delivered') {
+    updateData.delivered_at = new Date().toISOString();
+  } else {
+    updateData.delivered_at = null;
+  }
+  const { data, error } = await supabase.from("items").update(updateData).eq("id", id).select().single();
+  if (error) {
+    console.error("Supabase error:", error);
+    throw new Error(error.message || "Failed to update status");
+  }
+  if (!data) throw new Error("No data returned");
+  return data;
+}
+
+export async function collectPayment(id: string): Promise<InventoryItem> {
+  const { data, error } = await supabase.from("items").update({ payment_collected: true }).eq("id", id).select().single();
+  if (error) {
+    console.error("Supabase error:", error);
+    throw new Error(error.message || "Failed to collect payment");
+  }
+  if (!data) throw new Error("No data returned");
   return data;
 }
 

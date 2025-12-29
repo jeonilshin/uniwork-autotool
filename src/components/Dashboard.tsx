@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { signOut, getUser, getUserRole } from '@/lib/auth';
 import {
-  supabase, getFilteredItems, addItem, deleteItem, uploadImage, updateItemStatus, updateItemInquired,
+  supabase, getFilteredItems, addItem, deleteItem, uploadImage, updateItemStatus, collectPayment,
   getSecretaries, inviteSecretary, deleteSecretary,
-  InventoryItem, ItemStatus, FreightType, VatType, FilterOptions, UserRole, UserProfile,
+  InventoryItem, ItemStatus, FreightType, VatType, FilterOptions, UserRole, UserProfile, InquiredInfo,
 } from '@/lib/supabase';
 
 interface DashboardProps {
@@ -88,6 +88,81 @@ const ScreenshotProtection = ({ children, enabled }: { children: React.ReactNode
   );
 };
 
+const getDaysRemaining = (deliveredAt: string | null): number | null => {
+  if (!deliveredAt) return null;
+  const delivered = new Date(deliveredAt);
+  const deadline = new Date(delivered.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const diff = deadline.getTime() - now.getTime();
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+};
+
+const NotificationBell = ({ items, onSelectItem }: { items: InventoryItem[]; onSelectItem: (item: InventoryItem) => void }) => {
+  const [showDropdown, setShowDropdown] = useState(false);
+  
+  const overdueItems = items.filter(item => {
+    if (item.status !== 'delivered' || item.payment_collected) return false;
+    const days = getDaysRemaining(item.delivered_at);
+    return days !== null && days <= 0;
+  });
+
+  const urgentItems = items.filter(item => {
+    if (item.status !== 'delivered' || item.payment_collected) return false;
+    const days = getDaysRemaining(item.delivered_at);
+    return days !== null && days > 0 && days <= 7;
+  });
+
+  const notifications = [...overdueItems, ...urgentItems];
+  const hasNotifications = notifications.length > 0;
+
+  return (
+    <div className="relative">
+      <button onClick={() => setShowDropdown(!showDropdown)} className="relative p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        {hasNotifications && (
+          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+            {notifications.length}
+          </span>
+        )}
+      </button>
+      {showDropdown && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="p-3 border-b border-white/10">
+            <h3 className="text-white font-medium">Notifications</h3>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-slate-500">No notifications</div>
+            ) : (
+              notifications.map(item => {
+                const days = getDaysRemaining(item.delivered_at);
+                const isOverdue = days !== null && days <= 0;
+                return (
+                  <button key={item.id} onClick={() => { onSelectItem(item); setShowDropdown(false); }} className="w-full p-3 hover:bg-white/5 transition text-left border-b border-white/5 last:border-0">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${isOverdue ? 'bg-red-500' : 'bg-amber-500'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium truncate">{item.product_name}</p>
+                        <p className="text-slate-400 text-sm">{item.customer_name}</p>
+                        <p className={`text-sm mt-1 ${isOverdue ? 'text-red-400' : 'text-amber-400'}`}>
+                          {isOverdue ? `Payment overdue by ${Math.abs(days!)} days` : `${days} days left to collect`}
+                        </p>
+                      </div>
+                      <span className="text-emerald-400 font-medium text-sm">{formatPeso(item.sold_price)}</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'inventory' | 'secretaries'>('inventory');
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -161,15 +236,24 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const updated = await updateItemStatus(id, status);
       setItems(items.map(item => (item.id === id ? updated : item)));
       if (selectedItem?.id === id) setSelectedItem(updated);
-    } catch (error) { console.error('Failed to update status:', error); }
+    } catch (error) { 
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Failed to update status:', msg, error); 
+      alert('Failed to update status: ' + msg);
+    }
   };
 
-  const handleInquiredChange = async (id: string, is_inquired: boolean) => {
+  const handleCollectPayment = async (id: string) => {
+    if (!confirm('Mark payment as collected?')) return;
     try {
-      const updated = await updateItemInquired(id, is_inquired);
+      const updated = await collectPayment(id);
       setItems(items.map(item => (item.id === id ? updated : item)));
       if (selectedItem?.id === id) setSelectedItem(updated);
-    } catch (error) { console.error('Failed to update inquired:', error); }
+    } catch (error) { 
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Failed to collect payment:', msg, error); 
+      alert('Failed to collect payment: ' + msg);
+    }
   };
 
   const totalBought = items.reduce((sum, item) => sum + item.bought_price, 0);
@@ -196,6 +280,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                <NotificationBell items={items} onSelectItem={setSelectedItem} />
                 <span className="text-slate-400 hidden sm:block"><span className="text-white font-medium">{userEmail}</span></span>
                 <button onClick={handleLogout} className="px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition">Logout</button>
               </div>
@@ -362,9 +447,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       <div className="p-5">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-semibold text-white">{item.product_name}</h3>
-                          <span className={`px-2 py-1 text-xs rounded-full ${item.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'arrived' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {item.status === 'delivered' && !item.payment_collected && (
+                              <span className={`px-2 py-1 text-xs rounded-full ${getDaysRemaining(item.delivered_at)! <= 0 ? 'bg-red-500/20 text-red-400' : getDaysRemaining(item.delivered_at)! <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                                D-{Math.max(0, getDaysRemaining(item.delivered_at) || 0)}
+                              </span>
+                            )}
+                            {item.payment_collected && (
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">Paid</span>
+                            )}
+                            <span className={`px-2 py-1 text-xs rounded-full ${item.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'arrived' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                            </span>
+                          </div>
                         </div>
                         <p className="text-slate-400 text-sm">{item.customer_name}</p>
                         {item.contact && <p className="text-slate-500 text-xs">{item.contact}</p>}
@@ -466,16 +561,24 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
         {showAddModal && <AddItemModal userId={userId} onClose={() => setShowAddModal(false)} onAdd={(item) => { setItems([item, ...items]); setShowAddModal(false); }} />}
         {showSecretaryModal && <AddSecretaryModal adminId={userId} onClose={() => setShowSecretaryModal(false)} onAdd={(sec) => { setSecretaries([sec, ...secretaries]); setShowSecretaryModal(false); }} />}
-        {selectedItem && <ItemDetailModal item={selectedItem} isAdmin={isAdmin} onClose={() => setSelectedItem(null)} onDelete={() => handleDelete(selectedItem.id)} onStatusChange={(status) => handleStatusChange(selectedItem.id, status)} onInquiredChange={(val) => handleInquiredChange(selectedItem.id, val)} />}
+        {selectedItem && <ItemDetailModal item={selectedItem} isAdmin={isAdmin} onClose={() => setSelectedItem(null)} onDelete={() => handleDelete(selectedItem.id)} onStatusChange={(status) => handleStatusChange(selectedItem.id, status)} onCollectPayment={() => handleCollectPayment(selectedItem.id)} />}
       </div>
     </ScreenshotProtection>
   );
 }
 
 
-function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onInquiredChange }: { item: InventoryItem; isAdmin: boolean; onClose: () => void; onDelete: () => void; onStatusChange: (status: ItemStatus) => void; onInquiredChange: (val: boolean) => void }) {
+function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onCollectPayment }: { item: InventoryItem; isAdmin: boolean; onClose: () => void; onDelete: () => void; onStatusChange: (status: ItemStatus) => void; onCollectPayment: () => void }) {
   const statuses: ItemStatus[] = ['bought', 'arrived', 'delivered'];
   const profit = item.sold_price - item.bought_price;
+  const daysRemaining = getDaysRemaining(item.delivered_at);
+
+  const formatSource = (source: string | null) => {
+    if (!source) return '';
+    if (source === 'no_stock') return 'No Stock';
+    if (source === 'indent') return 'Indent';
+    return source;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -503,15 +606,39 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
             </button>
           </div>
 
-          {/* Inquired Toggle */}
-          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-cyan-400 font-medium">Mark as Inquired</span>
-              <button onClick={() => onInquiredChange(!item.is_inquired)} className={`w-12 h-6 rounded-full transition ${item.is_inquired ? 'bg-cyan-500' : 'bg-slate-600'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full transition transform ${item.is_inquired ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
-            </label>
-          </div>
+          {/* Inquired Info Section */}
+          {item.is_inquired && item.inquired_list && item.inquired_list.length > 0 && (
+            <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4">
+              <h3 className="text-cyan-400 font-medium mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Inquired From ({item.inquired_list.length})
+              </h3>
+              <div className="space-y-3">
+                {item.inquired_list.map((inq, index) => (
+                  <div key={index} className="bg-white/5 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-cyan-300 text-sm font-medium">#{index + 1} {inq.name || 'Unnamed'}</span>
+                      {inq.price && <span className="text-cyan-400 font-medium">{formatPeso(inq.price)}</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {inq.contact && (
+                        <div>
+                          <p className="text-slate-500">Contact</p>
+                          <p className="text-white">{inq.contact}</p>
+                        </div>
+                      )}
+                      {inq.source && (
+                        <div>
+                          <p className="text-slate-500">Source</p>
+                          <p className="text-white">{formatSource(inq.source)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 mb-4 flex-wrap">
             <span className={`px-3 py-1 text-sm rounded-full ${item.vat_type === 'vat_inclusive' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
@@ -578,6 +705,18 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
               Delete
             </button>
           </div>
+          {item.status === 'delivered' && !item.payment_collected && (
+            <button onClick={onCollectPayment} className={`w-full mt-3 py-3 px-4 font-medium rounded-xl transition flex items-center justify-center gap-2 ${daysRemaining !== null && daysRemaining <= 0 ? 'bg-red-500 hover:bg-red-600 text-white' : daysRemaining !== null && daysRemaining <= 7 ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              Collect Payment {daysRemaining !== null && `(D-${Math.max(0, daysRemaining)})`}
+            </button>
+          )}
+          {item.payment_collected && (
+            <div className="w-full mt-3 py-3 px-4 bg-green-500/20 text-green-400 font-medium rounded-xl text-center flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              Payment Collected
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -586,7 +725,8 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
 
 
 function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () => void; onAdd: (item: InventoryItem) => void }) {
-  const [formData, setFormData] = useState({ product_name: '', customer_name: '', contact: '', bought_from: '', purchaser: '', bought_price: '', sold_price: '', freight_type: 'sea' as FreightType, vat_type: 'vat_inclusive' as VatType, is_inquired: false });
+  const [formData, setFormData] = useState({ product_name: '', customer_name: '', contact: '', bought_from: '', purchaser: '', bought_price: '', sold_price: '', freight_type: 'sea' as FreightType, vat_type: 'vat_inclusive' as VatType });
+  const [inquiredList, setInquiredList] = useState<{ name: string; price: string; contact: string; source: string; customSource: string }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -597,17 +737,35 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
     if (file) { setImageFile(file); const reader = new FileReader(); reader.onloadend = () => setImagePreview(reader.result as string); reader.readAsDataURL(file); }
   };
 
+  const addInquiry = () => {
+    if (inquiredList.length < 3) setInquiredList([...inquiredList, { name: '', price: '', contact: '', source: 'no_stock', customSource: '' }]);
+  };
+
+  const removeInquiry = (index: number) => setInquiredList(inquiredList.filter((_, i) => i !== index));
+
+  const updateInquiry = (index: number, field: string, value: string) => {
+    const updated = [...inquiredList];
+    updated[index] = { ...updated[index], [field]: value };
+    setInquiredList(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
       let imageUrl: string | null = null;
       if (imageFile) imageUrl = await uploadImage(imageFile, userId);
+      const finalInquiredList = inquiredList.map(inq => ({
+        name: inq.name, price: inq.price ? Number(inq.price) : null, contact: inq.contact,
+        source: inq.source === 'custom' ? inq.customSource : inq.source,
+      }));
       const item = await addItem({
         product_name: formData.product_name, customer_name: formData.customer_name, contact: formData.contact,
         bought_from: formData.bought_from, purchaser: formData.purchaser,
         bought_price: Number(formData.bought_price), sold_price: Number(formData.sold_price),
         image_url: imageUrl, status: 'bought', freight_type: formData.freight_type, vat_type: formData.vat_type,
-        is_inquired: formData.is_inquired, user_id: userId,
+        is_inquired: inquiredList.length > 0, inquired_list: inquiredList.length > 0 ? finalInquiredList : null,
+        delivered_at: null, payment_collected: false,
+        user_id: userId,
       });
       onAdd(item);
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to add item'); }
@@ -674,14 +832,6 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
             </div>
           </div>
 
-          {/* Inquired Checkbox */}
-          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={formData.is_inquired} onChange={(e) => setFormData({ ...formData, is_inquired: e.target.checked })} className="w-5 h-5 rounded border-cyan-500 text-cyan-500 focus:ring-cyan-500 bg-transparent" />
-              <span className="text-cyan-400 font-medium">Mark as Inquired</span>
-            </label>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Image</label>
             <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="image-upload" />
@@ -694,6 +844,48 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
               )}
             </label>
           </div>
+
+          {/* Inquired Section - Up to 3 */}
+          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-cyan-400 font-medium">Inquired From ({inquiredList.length}/3)</span>
+              {inquiredList.length < 3 && (
+                <button type="button" onClick={addInquiry} className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Add
+                </button>
+              )}
+            </div>
+            {inquiredList.length === 0 && <p className="text-slate-500 text-sm text-center py-2">No inquiries added. Click &quot;Add&quot; to add up to 3.</p>}
+            <div className="space-y-3">
+              {inquiredList.map((inq, index) => (
+                <div key={index} className="bg-white/5 rounded-lg p-3 border border-cyan-500/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-cyan-300 text-sm font-medium">#{index + 1}</span>
+                    <button type="button" onClick={() => removeInquiry(index)} className="text-red-400 hover:text-red-300 p-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <input type="text" value={inq.name} onChange={(e) => updateInquiry(index, 'name', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Supplier/Store name" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="number" value={inq.price} onChange={(e) => updateInquiry(index, 'price', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Price (₱)" min="0" step="0.01" />
+                      <input type="text" value={inq.contact} onChange={(e) => updateInquiry(index, 'contact', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Contact" />
+                    </div>
+                    <select value={inq.source} onChange={(e) => updateInquiry(index, 'source', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm">
+                      <option value="no_stock">No Stock</option>
+                      <option value="indent">Indent</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    {inq.source === 'custom' && (
+                      <input type="text" value={inq.customSource} onChange={(e) => updateInquiry(index, 'customSource', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Custom source type" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {error && <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-3 text-red-400 text-sm text-center">{error}</div>}
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={onClose} className="flex-1 py-3 px-4 bg-white/5 text-slate-300 font-medium rounded-xl hover:bg-white/10 transition">Cancel</button>

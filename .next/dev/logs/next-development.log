@@ -1,5 +1,49 @@
-[00:00:03.116] Server  LOG     ✓ Ready in 2.5s
-[00:00:06.925] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:17.024] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:03:19.823] Server  LOG     ✓ Compiled in 1031ms
-[00:03:23.726] Server  LOG     ✓ Compiled in 76ms
+[00:00:00.998] Server  LOG     ✓ Ready in 769ms
+[00:00:03.368] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:10:17.364] Server  LOG     ✓ Compiled in 127ms
+[00:11:05.100] Server  LOG     ✓ Compiled in 94ms
+[00:11:11.339] Server  LOG     ✓ Compiled in 44ms
+[00:11:17.024] Server  LOG     ✓ Compiled in 29ms
+[00:11:24.920] Server  LOG     ✓ Compiled in 215ms
+[00:11:32.967] Server  LOG     ✓ Compiled in 43ms
+[00:12:53.563] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:14:58.569] Server  LOG     ✓ Compiled in 152ms
+[00:15:19.974] Browser ERROR   uncaughtError: ReferenceError: inquiredData is not defined
+[00:15:22.229] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:15:22.244] Server  LOG     ✓ Compiled in 406ms
+[00:15:22.965] Server  LOG     ✓ Compiled in 0ms
+[00:15:22.965] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:15:23.879] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:15:40.103] Server  LOG     ✓ Compiled in 59ms
+[00:16:15.683] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:20:01.385] Browser ERROR   Failed to update status: {"code":"23514","details":null,"hint":null,"message":"new row for relation \"items\" violates check constraint \"items_status_check\""}
+[00:21:24.710] Browser ERROR   Failed to update status: {"code":"23514","details":null,"hint":null,"message":"new row for relation \"items\" violates check constraint \"items_status_check\""}
+[00:21:27.824] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:21:31.048] Browser ERROR   Failed to update status: {"code":"23514","details":null,"hint":null,"message":"new row for relation \"items\" violates check constraint \"items_status_check\""}
+[00:21:56.998] Server  LOG     ✓ Compiled in 51ms
+[00:21:57.067] Browser WARN    GoTrueClient@sb-fmfoasrdsgotytodyzwk-auth-token:1 (2.89.0) 2025-12-29T02:39:25.037Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:22:04.796] Server  LOG     ✓ Compiled in 40ms
+[00:22:42.904] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:23:00.130] Browser ERROR   Supabase error: {"code":"23514","details":null,"hint":null,"message":"new row for relation \"items\" violates check constraint \"items_status_check\""}
+[00:23:00.131] Browser ERROR   Failed to update status: new row for relation "items" violates check constraint "items_status_check" {}
+[00:23:12.918] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:23:16.667] Browser ERROR   Supabase error: {"code":"23514","details":null,"hint":null,"message":"new row for relation \"items\" violates check constraint \"items_status_check\""}
+[00:23:16.667] Browser ERROR   Failed to update status: new row for relation "items" violates check constraint "items_status_check" {}
+[00:23:25.054] Browser ERROR   Supabase error: {"code":"23514","details":null,"hint":null,"message":"new row for relation \"items\" violates check constraint \"items_status_check\""}
+[00:23:25.056] Browser ERROR   Failed to update status: new row for relation "items" violates check constraint "items_status_check" {}
+[00:26:10.068] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:31:23.048] Server  LOG     ✓ Compiled in 82ms
+[00:31:23.127] Browser WARN    GoTrueClient@sb-fmfoasrdsgotytodyzwk-auth-token:1 (2.89.0) 2025-12-29T02:48:51.104Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:31:49.817] Server  LOG     ✓ Compiled in 46ms
+[00:31:49.899] Browser ERROR   uncaughtError: ReferenceError: NotificationBell is not defined
+[00:32:17.760] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:32:17.791] Server  LOG     ✓ Compiled in 88ms
+[00:32:18.382] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:32:34.501] Server  LOG     ✓ Compiled in 67ms
+[00:32:59.465] Server  LOG     ✓ Compiled in 67ms
+[00:33:14.094] Server  LOG     ✓ Compiled in 97ms
+[00:33:26.818] Server  LOG     ✓ Compiled in 46ms
+[00:33:36.636] Server  LOG     ✓ Compiled in 69ms
+[00:33:49.467] Server  LOG     ✓ Compiled in 50ms
+[00:34:33.595] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:36:19.442] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold

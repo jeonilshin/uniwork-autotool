@@ -5,6 +5,8 @@
 __turbopack_context__.s([
     "addItem",
     ()=>addItem,
+    "collectPayment",
+    ()=>collectPayment,
     "createUserProfile",
     ()=>createUserProfile,
     "deleteItem",
@@ -91,10 +93,32 @@ async function addItem(item) {
     return data;
 }
 async function updateItemStatus(id, status) {
-    const { data, error } = await supabase.from("items").update({
+    const updateData = {
         status
+    };
+    // Set delivered_at when status changes to delivered
+    if (status === 'delivered') {
+        updateData.delivered_at = new Date().toISOString();
+    } else {
+        updateData.delivered_at = null;
+    }
+    const { data, error } = await supabase.from("items").update(updateData).eq("id", id).select().single();
+    if (error) {
+        console.error("Supabase error:", error);
+        throw new Error(error.message || "Failed to update status");
+    }
+    if (!data) throw new Error("No data returned");
+    return data;
+}
+async function collectPayment(id) {
+    const { data, error } = await supabase.from("items").update({
+        payment_collected: true
     }).eq("id", id).select().single();
-    if (error) throw error;
+    if (error) {
+        console.error("Supabase error:", error);
+        throw new Error(error.message || "Failed to collect payment");
+    }
+    if (!data) throw new Error("No data returned");
     return data;
 }
 async function updateItemInquired(id, is_inquired) {
@@ -434,7 +458,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autoto
 var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$src$2f$lib$2f$auth$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/uniwork-autotool/src/lib/auth.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$src$2f$lib$2f$supabase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/uniwork-autotool/src/lib/supabase.ts [app-client] (ecmascript)");
 ;
-var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature(), _s2 = __turbopack_context__.k.signature(), _s3 = __turbopack_context__.k.signature();
+var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature(), _s2 = __turbopack_context__.k.signature(), _s3 = __turbopack_context__.k.signature(), _s4 = __turbopack_context__.k.signature();
 'use client';
 ;
 ;
@@ -676,8 +700,194 @@ const ScreenshotProtection = ({ children, enabled })=>{
 };
 _s(ScreenshotProtection, "OD7bBpZva5O2jO+Puf00hKivP7c=");
 _c3 = ScreenshotProtection;
-function Dashboard({ onLogout }) {
+const getDaysRemaining = (deliveredAt)=>{
+    if (!deliveredAt) return null;
+    const delivered = new Date(deliveredAt);
+    const deadline = new Date(delivered.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const diff = deadline.getTime() - now.getTime();
+    return Math.ceil(diff / (24 * 60 * 60 * 1000));
+};
+const NotificationBell = ({ items, onSelectItem })=>{
     _s1();
+    const [showDropdown, setShowDropdown] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    const overdueItems = items.filter((item)=>{
+        if (item.status !== 'delivered' || item.payment_collected) return false;
+        const days = getDaysRemaining(item.delivered_at);
+        return days !== null && days <= 0;
+    });
+    const urgentItems = items.filter((item)=>{
+        if (item.status !== 'delivered' || item.payment_collected) return false;
+        const days = getDaysRemaining(item.delivered_at);
+        return days !== null && days > 0 && days <= 7;
+    });
+    const notifications = [
+        ...overdueItems,
+        ...urgentItems
+    ];
+    const hasNotifications = notifications.length > 0;
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+        className: "relative",
+        children: [
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                onClick: ()=>setShowDropdown(!showDropdown),
+                className: "relative p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("svg", {
+                        className: "w-6 h-6",
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("path", {
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            strokeWidth: 2,
+                            d: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                        }, void 0, false, {
+                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                            lineNumber: 122,
+                            columnNumber: 11
+                        }, ("TURBOPACK compile-time value", void 0))
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                        lineNumber: 121,
+                        columnNumber: 9
+                    }, ("TURBOPACK compile-time value", void 0)),
+                    hasNotifications && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                        className: "absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center",
+                        children: notifications.length
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                        lineNumber: 125,
+                        columnNumber: 11
+                    }, ("TURBOPACK compile-time value", void 0))
+                ]
+            }, void 0, true, {
+                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                lineNumber: 120,
+                columnNumber: 7
+            }, ("TURBOPACK compile-time value", void 0)),
+            showDropdown && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "p-3 border-b border-white/10",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
+                            className: "text-white font-medium",
+                            children: "Notifications"
+                        }, void 0, false, {
+                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                            lineNumber: 133,
+                            columnNumber: 13
+                        }, ("TURBOPACK compile-time value", void 0))
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                        lineNumber: 132,
+                        columnNumber: 11
+                    }, ("TURBOPACK compile-time value", void 0)),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "max-h-80 overflow-y-auto",
+                        children: notifications.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "p-4 text-center text-slate-500",
+                            children: "No notifications"
+                        }, void 0, false, {
+                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                            lineNumber: 137,
+                            columnNumber: 15
+                        }, ("TURBOPACK compile-time value", void 0)) : notifications.map((item)=>{
+                            const days = getDaysRemaining(item.delivered_at);
+                            const isOverdue = days !== null && days <= 0;
+                            return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                onClick: ()=>{
+                                    onSelectItem(item);
+                                    setShowDropdown(false);
+                                },
+                                className: "w-full p-3 hover:bg-white/5 transition text-left border-b border-white/5 last:border-0",
+                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    className: "flex items-start gap-3",
+                                    children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: `w-2 h-2 rounded-full mt-2 ${isOverdue ? 'bg-red-500' : 'bg-amber-500'}`
+                                        }, void 0, false, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 145,
+                                            columnNumber: 23
+                                        }, ("TURBOPACK compile-time value", void 0)),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "flex-1 min-w-0",
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                    className: "text-white font-medium truncate",
+                                                    children: item.product_name
+                                                }, void 0, false, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 147,
+                                                    columnNumber: 25
+                                                }, ("TURBOPACK compile-time value", void 0)),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                    className: "text-slate-400 text-sm",
+                                                    children: item.customer_name
+                                                }, void 0, false, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 148,
+                                                    columnNumber: 25
+                                                }, ("TURBOPACK compile-time value", void 0)),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                    className: `text-sm mt-1 ${isOverdue ? 'text-red-400' : 'text-amber-400'}`,
+                                                    children: isOverdue ? `Payment overdue by ${Math.abs(days)} days` : `${days} days left to collect`
+                                                }, void 0, false, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 149,
+                                                    columnNumber: 25
+                                                }, ("TURBOPACK compile-time value", void 0))
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 146,
+                                            columnNumber: 23
+                                        }, ("TURBOPACK compile-time value", void 0)),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                            className: "text-emerald-400 font-medium text-sm",
+                                            children: formatPeso(item.sold_price)
+                                        }, void 0, false, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 153,
+                                            columnNumber: 23
+                                        }, ("TURBOPACK compile-time value", void 0))
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 144,
+                                    columnNumber: 21
+                                }, ("TURBOPACK compile-time value", void 0))
+                            }, item.id, false, {
+                                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                lineNumber: 143,
+                                columnNumber: 19
+                            }, ("TURBOPACK compile-time value", void 0));
+                        })
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                        lineNumber: 135,
+                        columnNumber: 11
+                    }, ("TURBOPACK compile-time value", void 0))
+                ]
+            }, void 0, true, {
+                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                lineNumber: 131,
+                columnNumber: 9
+            }, ("TURBOPACK compile-time value", void 0))
+        ]
+    }, void 0, true, {
+        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+        lineNumber: 119,
+        columnNumber: 5
+    }, ("TURBOPACK compile-time value", void 0));
+};
+_s1(NotificationBell, "/Fk0mfoaTkcfqmlHhjzD5FM1xJk=");
+_c4 = NotificationBell;
+function Dashboard({ onLogout }) {
+    _s2();
     const [activeTab, setActiveTab] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('inventory');
     const [items, setItems] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [secretaries, setSecretaries] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
@@ -802,16 +1012,21 @@ function Dashboard({ onLogout }) {
             setItems(items.map((item)=>item.id === id ? updated : item));
             if (selectedItem?.id === id) setSelectedItem(updated);
         } catch (error) {
-            console.error('Failed to update status:', error);
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Failed to update status:', msg, error);
+            alert('Failed to update status: ' + msg);
         }
     };
-    const handleInquiredChange = async (id, is_inquired)=>{
+    const handleCollectPayment = async (id)=>{
+        if (!confirm('Mark payment as collected?')) return;
         try {
-            const updated = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$src$2f$lib$2f$supabase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["updateItemInquired"])(id, is_inquired);
+            const updated = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$src$2f$lib$2f$supabase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["collectPayment"])(id);
             setItems(items.map((item)=>item.id === id ? updated : item));
             if (selectedItem?.id === id) setSelectedItem(updated);
         } catch (error) {
-            console.error('Failed to update inquired:', error);
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Failed to collect payment:', msg, error);
+            alert('Failed to collect payment: ' + msg);
         }
     };
     const totalBought = items.reduce((sum, item)=>sum + item.bought_price, 0);
@@ -840,12 +1055,12 @@ function Dashboard({ onLogout }) {
                                                 className: "w-5 h-5 text-white"
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 189,
+                                                lineNumber: 273,
                                                 columnNumber: 19
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 188,
+                                            lineNumber: 272,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -855,7 +1070,7 @@ function Dashboard({ onLogout }) {
                                                     children: "UTS 1.0"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 192,
+                                                    lineNumber: 276,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -863,24 +1078,32 @@ function Dashboard({ onLogout }) {
                                                     children: isAdmin ? 'Admin' : 'Secretary'
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 193,
+                                                    lineNumber: 277,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 191,
+                                            lineNumber: 275,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 187,
+                                    lineNumber: 271,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "flex items-center gap-4",
                                     children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NotificationBell, {
+                                            items: items,
+                                            onSelectItem: setSelectedItem
+                                        }, void 0, false, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 283,
+                                            columnNumber: 17
+                                        }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             className: "text-slate-400 hidden sm:block",
                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -888,12 +1111,12 @@ function Dashboard({ onLogout }) {
                                                 children: userEmail
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 199,
+                                                lineNumber: 284,
                                                 columnNumber: 66
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 199,
+                                            lineNumber: 284,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -902,29 +1125,29 @@ function Dashboard({ onLogout }) {
                                             children: "Logout"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 200,
+                                            lineNumber: 285,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 198,
+                                    lineNumber: 282,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 186,
+                            lineNumber: 270,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                        lineNumber: 185,
+                        lineNumber: 269,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 184,
+                    lineNumber: 268,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -939,7 +1162,7 @@ function Dashboard({ onLogout }) {
                                     children: "Inventory"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 209,
+                                    lineNumber: 294,
                                     columnNumber: 13
                                 }, this),
                                 isAdmin && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -952,13 +1175,13 @@ function Dashboard({ onLogout }) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 213,
+                                    lineNumber: 298,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 208,
+                            lineNumber: 293,
                             columnNumber: 11
                         }, this),
                         activeTab === 'inventory' ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -974,7 +1197,7 @@ function Dashboard({ onLogout }) {
                                                     children: "Total Items"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 224,
+                                                    lineNumber: 309,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -982,13 +1205,13 @@ function Dashboard({ onLogout }) {
                                                     children: items.length
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 225,
+                                                    lineNumber: 310,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 223,
+                                            lineNumber: 308,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -999,7 +1222,7 @@ function Dashboard({ onLogout }) {
                                                     children: "Inquired"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 228,
+                                                    lineNumber: 313,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1007,13 +1230,13 @@ function Dashboard({ onLogout }) {
                                                     children: inquiredCount
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 229,
+                                                    lineNumber: 314,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 227,
+                                            lineNumber: 312,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1024,7 +1247,7 @@ function Dashboard({ onLogout }) {
                                                     children: "Total Bought"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 232,
+                                                    lineNumber: 317,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1032,13 +1255,13 @@ function Dashboard({ onLogout }) {
                                                     children: formatPeso(totalBought)
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 233,
+                                                    lineNumber: 318,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 231,
+                                            lineNumber: 316,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1049,7 +1272,7 @@ function Dashboard({ onLogout }) {
                                                     children: "Total Sold"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 236,
+                                                    lineNumber: 321,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1057,13 +1280,13 @@ function Dashboard({ onLogout }) {
                                                     children: formatPeso(totalSold)
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 237,
+                                                    lineNumber: 322,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 235,
+                                            lineNumber: 320,
                                             columnNumber: 17
                                         }, this),
                                         isAdmin && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1074,7 +1297,7 @@ function Dashboard({ onLogout }) {
                                                     children: "Profit (Delivered)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 241,
+                                                    lineNumber: 326,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1085,19 +1308,19 @@ function Dashboard({ onLogout }) {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 242,
+                                                    lineNumber: 327,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 240,
+                                            lineNumber: 325,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 222,
+                                    lineNumber: 307,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1121,12 +1344,12 @@ function Dashboard({ onLogout }) {
                                                                 d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 254,
+                                                                lineNumber: 339,
                                                                 columnNumber: 23
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 253,
+                                                            lineNumber: 338,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1137,13 +1360,13 @@ function Dashboard({ onLogout }) {
                                                             className: "w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 256,
+                                                            lineNumber: 341,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 252,
+                                                    lineNumber: 337,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1165,12 +1388,12 @@ function Dashboard({ onLogout }) {
                                                                         d: "M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 260,
+                                                                        lineNumber: 345,
                                                                         columnNumber: 102
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 260,
+                                                                    lineNumber: 345,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1178,13 +1401,13 @@ function Dashboard({ onLogout }) {
                                                                     children: "Filters"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 261,
+                                                                    lineNumber: 346,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 259,
+                                                            lineNumber: 344,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1205,17 +1428,17 @@ function Dashboard({ onLogout }) {
                                                                             d: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                            lineNumber: 265,
+                                                                            lineNumber: 350,
                                                                             columnNumber: 104
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 265,
+                                                                        lineNumber: 350,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 264,
+                                                                    lineNumber: 349,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1233,23 +1456,23 @@ function Dashboard({ onLogout }) {
                                                                             d: "M4 6h16M4 12h16M4 18h16"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                            lineNumber: 268,
+                                                                            lineNumber: 353,
                                                                             columnNumber: 104
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 268,
+                                                                        lineNumber: 353,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 267,
+                                                                    lineNumber: 352,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 263,
+                                                            lineNumber: 348,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1268,12 +1491,12 @@ function Dashboard({ onLogout }) {
                                                                         d: "M12 4v16m8-8H4"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 272,
+                                                                        lineNumber: 357,
                                                                         columnNumber: 102
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 272,
+                                                                    lineNumber: 357,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1281,25 +1504,25 @@ function Dashboard({ onLogout }) {
                                                                     children: "Add Item"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 273,
+                                                                    lineNumber: 358,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 271,
+                                                            lineNumber: 356,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 258,
+                                                    lineNumber: 343,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 251,
+                                            lineNumber: 336,
                                             columnNumber: 17
                                         }, this),
                                         showFilters && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1314,7 +1537,7 @@ function Dashboard({ onLogout }) {
                                                                 children: "Status"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 282,
+                                                                lineNumber: 367,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1330,7 +1553,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "All"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 284,
+                                                                        lineNumber: 369,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1338,7 +1561,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "Bought"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 285,
+                                                                        lineNumber: 370,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1346,7 +1569,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "Arrived"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 286,
+                                                                        lineNumber: 371,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1354,19 +1577,19 @@ function Dashboard({ onLogout }) {
                                                                         children: "Delivered"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 287,
+                                                                        lineNumber: 372,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 283,
+                                                                lineNumber: 368,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 281,
+                                                        lineNumber: 366,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1376,7 +1599,7 @@ function Dashboard({ onLogout }) {
                                                                 children: "Freight"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 291,
+                                                                lineNumber: 376,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1392,7 +1615,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "All"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 293,
+                                                                        lineNumber: 378,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1400,7 +1623,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "Sea"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 294,
+                                                                        lineNumber: 379,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1408,7 +1631,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "Land"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 295,
+                                                                        lineNumber: 380,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1416,19 +1639,19 @@ function Dashboard({ onLogout }) {
                                                                         children: "Air"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 296,
+                                                                        lineNumber: 381,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 292,
+                                                                lineNumber: 377,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 290,
+                                                        lineNumber: 375,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1438,7 +1661,7 @@ function Dashboard({ onLogout }) {
                                                                 children: "VAT"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 300,
+                                                                lineNumber: 385,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1454,7 +1677,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "All"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 302,
+                                                                        lineNumber: 387,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1462,7 +1685,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "VAT"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 303,
+                                                                        lineNumber: 388,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1470,19 +1693,19 @@ function Dashboard({ onLogout }) {
                                                                         children: "Non-VAT"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 304,
+                                                                        lineNumber: 389,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 301,
+                                                                lineNumber: 386,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 299,
+                                                        lineNumber: 384,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1492,7 +1715,7 @@ function Dashboard({ onLogout }) {
                                                                 children: "Inquired"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 308,
+                                                                lineNumber: 393,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1508,7 +1731,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "All"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 310,
+                                                                        lineNumber: 395,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1516,7 +1739,7 @@ function Dashboard({ onLogout }) {
                                                                         children: "Inquired"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 311,
+                                                                        lineNumber: 396,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1524,19 +1747,19 @@ function Dashboard({ onLogout }) {
                                                                         children: "Not Inquired"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                        lineNumber: 312,
+                                                                        lineNumber: 397,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 309,
+                                                                lineNumber: 394,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 307,
+                                                        lineNumber: 392,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1546,7 +1769,7 @@ function Dashboard({ onLogout }) {
                                                                 children: "Min (₱)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 316,
+                                                                lineNumber: 401,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1560,13 +1783,13 @@ function Dashboard({ onLogout }) {
                                                                 className: "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 317,
+                                                                lineNumber: 402,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 315,
+                                                        lineNumber: 400,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1576,7 +1799,7 @@ function Dashboard({ onLogout }) {
                                                                 children: "Max (₱)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 320,
+                                                                lineNumber: 405,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1590,13 +1813,13 @@ function Dashboard({ onLogout }) {
                                                                 className: "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 321,
+                                                                lineNumber: 406,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 319,
+                                                        lineNumber: 404,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1612,29 +1835,29 @@ function Dashboard({ onLogout }) {
                                                             children: "Clear"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 324,
+                                                            lineNumber: 409,
                                                             columnNumber: 25
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 323,
+                                                        lineNumber: 408,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 280,
+                                                lineNumber: 365,
                                                 columnNumber: 21
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 279,
+                                            lineNumber: 364,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 250,
+                                    lineNumber: 335,
                                     columnNumber: 15
                                 }, this),
                                 loading ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1643,12 +1866,12 @@ function Dashboard({ onLogout }) {
                                         className: "w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"
                                     }, void 0, false, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 334,
+                                        lineNumber: 419,
                                         columnNumber: 19
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 333,
+                                    lineNumber: 418,
                                     columnNumber: 17
                                 }, this) : items.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "text-center py-20",
@@ -1667,17 +1890,17 @@ function Dashboard({ onLogout }) {
                                                     d: "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 339,
+                                                    lineNumber: 424,
                                                     columnNumber: 115
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 339,
+                                                lineNumber: 424,
                                                 columnNumber: 21
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 338,
+                                            lineNumber: 423,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1685,13 +1908,13 @@ function Dashboard({ onLogout }) {
                                             children: "No items found. Add your first item!"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 341,
+                                            lineNumber: 426,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 337,
+                                    lineNumber: 422,
                                     columnNumber: 17
                                 }, this) : viewMode === 'card' ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
@@ -1708,7 +1931,7 @@ function Dashboard({ onLogout }) {
                                                             className: "w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 349,
+                                                            lineNumber: 434,
                                                             columnNumber: 27
                                                         }, this),
                                                         item.is_inquired && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1716,13 +1939,13 @@ function Dashboard({ onLogout }) {
                                                             children: "INQUIRED"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 351,
+                                                            lineNumber: 436,
                                                             columnNumber: 29
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 348,
+                                                    lineNumber: 433,
                                                     columnNumber: 25
                                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "aspect-video bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative",
@@ -1739,12 +1962,12 @@ function Dashboard({ onLogout }) {
                                                                 d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 356,
+                                                                lineNumber: 441,
                                                                 columnNumber: 123
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 356,
+                                                            lineNumber: 441,
                                                             columnNumber: 27
                                                         }, this),
                                                         item.is_inquired && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1752,13 +1975,13 @@ function Dashboard({ onLogout }) {
                                                             children: "INQUIRED"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 358,
+                                                            lineNumber: 443,
                                                             columnNumber: 29
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 355,
+                                                    lineNumber: 440,
                                                     columnNumber: 25
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1772,21 +1995,49 @@ function Dashboard({ onLogout }) {
                                                                     children: item.product_name
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 364,
+                                                                    lineNumber: 449,
                                                                     columnNumber: 27
                                                                 }, this),
-                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                                    className: `px-2 py-1 text-xs rounded-full ${item.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'arrived' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`,
-                                                                    children: item.status.charAt(0).toUpperCase() + item.status.slice(1)
-                                                                }, void 0, false, {
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                    className: "flex items-center gap-2",
+                                                                    children: [
+                                                                        item.status === 'delivered' && !item.payment_collected && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                            className: `px-2 py-1 text-xs rounded-full ${getDaysRemaining(item.delivered_at) <= 0 ? 'bg-red-500/20 text-red-400' : getDaysRemaining(item.delivered_at) <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`,
+                                                                            children: [
+                                                                                "D-",
+                                                                                Math.max(0, getDaysRemaining(item.delivered_at) || 0)
+                                                                            ]
+                                                                        }, void 0, true, {
+                                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                            lineNumber: 452,
+                                                                            columnNumber: 31
+                                                                        }, this),
+                                                                        item.payment_collected && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                            className: "px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400",
+                                                                            children: "Paid"
+                                                                        }, void 0, false, {
+                                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                            lineNumber: 457,
+                                                                            columnNumber: 31
+                                                                        }, this),
+                                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                            className: `px-2 py-1 text-xs rounded-full ${item.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'arrived' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`,
+                                                                            children: item.status.charAt(0).toUpperCase() + item.status.slice(1)
+                                                                        }, void 0, false, {
+                                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                            lineNumber: 459,
+                                                                            columnNumber: 29
+                                                                        }, this)
+                                                                    ]
+                                                                }, void 0, true, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 365,
+                                                                    lineNumber: 450,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 363,
+                                                            lineNumber: 448,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1794,7 +2045,7 @@ function Dashboard({ onLogout }) {
                                                             children: item.customer_name
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 369,
+                                                            lineNumber: 464,
                                                             columnNumber: 25
                                                         }, this),
                                                         item.contact && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1802,7 +2053,7 @@ function Dashboard({ onLogout }) {
                                                             children: item.contact
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 370,
+                                                            lineNumber: 465,
                                                             columnNumber: 42
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1813,7 +2064,7 @@ function Dashboard({ onLogout }) {
                                                                     children: item.vat_type === 'vat_inclusive' ? 'VAT' : 'Non-VAT'
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 372,
+                                                                    lineNumber: 467,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1824,20 +2075,20 @@ function Dashboard({ onLogout }) {
                                                                             className: "w-3 h-3"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                            lineNumber: 376,
+                                                                            lineNumber: 471,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         item.freight_type.charAt(0).toUpperCase() + item.freight_type.slice(1)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 375,
+                                                                    lineNumber: 470,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 371,
+                                                            lineNumber: 466,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1846,12 +2097,12 @@ function Dashboard({ onLogout }) {
                                                                 status: item.status
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 380,
+                                                                lineNumber: 475,
                                                                 columnNumber: 47
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 380,
+                                                            lineNumber: 475,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1862,7 +2113,7 @@ function Dashboard({ onLogout }) {
                                                                     children: formatPeso(item.sold_price)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 382,
+                                                                    lineNumber: 477,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1870,30 +2121,30 @@ function Dashboard({ onLogout }) {
                                                                     children: new Date(item.created_at).toLocaleDateString()
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 383,
+                                                                    lineNumber: 478,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 381,
+                                                            lineNumber: 476,
                                                             columnNumber: 25
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 362,
+                                                    lineNumber: 447,
                                                     columnNumber: 23
                                                 }, this)
                                             ]
                                         }, item.id, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 346,
+                                            lineNumber: 431,
                                             columnNumber: 21
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 344,
+                                    lineNumber: 429,
                                     columnNumber: 17
                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden overflow-x-auto",
@@ -1909,7 +2160,7 @@ function Dashboard({ onLogout }) {
                                                             children: "Product"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 394,
+                                                            lineNumber: 489,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1917,7 +2168,7 @@ function Dashboard({ onLogout }) {
                                                             children: "Customer"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 395,
+                                                            lineNumber: 490,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1925,7 +2176,7 @@ function Dashboard({ onLogout }) {
                                                             children: "Contact"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 396,
+                                                            lineNumber: 491,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1933,7 +2184,7 @@ function Dashboard({ onLogout }) {
                                                             children: "Status"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 397,
+                                                            lineNumber: 492,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1941,7 +2192,7 @@ function Dashboard({ onLogout }) {
                                                             children: "Inquired"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 398,
+                                                            lineNumber: 493,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1949,7 +2200,7 @@ function Dashboard({ onLogout }) {
                                                             children: "Bought"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 399,
+                                                            lineNumber: 494,
                                                             columnNumber: 25
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1957,18 +2208,18 @@ function Dashboard({ onLogout }) {
                                                             children: "Sold"
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 400,
+                                                            lineNumber: 495,
                                                             columnNumber: 25
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 393,
+                                                    lineNumber: 488,
                                                     columnNumber: 23
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 392,
+                                                lineNumber: 487,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1987,7 +2238,7 @@ function Dashboard({ onLogout }) {
                                                                             className: "w-10 h-10 rounded-lg object-cover"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                            lineNumber: 408,
+                                                                            lineNumber: 503,
                                                                             columnNumber: 49
                                                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                             className: "w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center",
@@ -2003,17 +2254,17 @@ function Dashboard({ onLogout }) {
                                                                                     d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                                    lineNumber: 408,
+                                                                                    lineNumber: 503,
                                                                                     columnNumber: 311
                                                                                 }, this)
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                                lineNumber: 408,
+                                                                                lineNumber: 503,
                                                                                 columnNumber: 217
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                            lineNumber: 408,
+                                                                            lineNumber: 503,
                                                                             columnNumber: 133
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2021,18 +2272,18 @@ function Dashboard({ onLogout }) {
                                                                             children: item.product_name
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                            lineNumber: 409,
+                                                                            lineNumber: 504,
                                                                             columnNumber: 31
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 407,
+                                                                    lineNumber: 502,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 406,
+                                                                lineNumber: 501,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2040,7 +2291,7 @@ function Dashboard({ onLogout }) {
                                                                 children: item.customer_name
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 412,
+                                                                lineNumber: 507,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2048,7 +2299,7 @@ function Dashboard({ onLogout }) {
                                                                 children: item.contact || '-'
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 413,
+                                                                lineNumber: 508,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2058,12 +2309,12 @@ function Dashboard({ onLogout }) {
                                                                     children: item.status.charAt(0).toUpperCase() + item.status.slice(1)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 415,
+                                                                    lineNumber: 510,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 414,
+                                                                lineNumber: 509,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2073,12 +2324,12 @@ function Dashboard({ onLogout }) {
                                                                     children: "Yes"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                    lineNumber: 420,
+                                                                    lineNumber: 515,
                                                                     columnNumber: 50
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 419,
+                                                                lineNumber: 514,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2086,7 +2337,7 @@ function Dashboard({ onLogout }) {
                                                                 children: formatPeso(item.bought_price)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 422,
+                                                                lineNumber: 517,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2094,29 +2345,29 @@ function Dashboard({ onLogout }) {
                                                                 children: formatPeso(item.sold_price)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 423,
+                                                                lineNumber: 518,
                                                                 columnNumber: 27
                                                             }, this)
                                                         ]
                                                     }, item.id, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 405,
+                                                        lineNumber: 500,
                                                         columnNumber: 25
                                                     }, this))
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 403,
+                                                lineNumber: 498,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 391,
+                                        lineNumber: 486,
                                         columnNumber: 19
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 390,
+                                    lineNumber: 485,
                                     columnNumber: 17
                                 }, this)
                             ]
@@ -2130,7 +2381,7 @@ function Dashboard({ onLogout }) {
                                             children: "Manage Secretaries"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 435,
+                                            lineNumber: 530,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2149,25 +2400,25 @@ function Dashboard({ onLogout }) {
                                                         d: "M12 4v16m8-8H4"
                                                     }, void 0, false, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 437,
+                                                        lineNumber: 532,
                                                         columnNumber: 98
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 437,
+                                                    lineNumber: 532,
                                                     columnNumber: 19
                                                 }, this),
                                                 "Add Secretary"
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 436,
+                                            lineNumber: 531,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 434,
+                                    lineNumber: 529,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2177,12 +2428,12 @@ function Dashboard({ onLogout }) {
                                         children: "Secretaries can view and manage inventory but cannot see profit information."
                                     }, void 0, false, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 442,
+                                        lineNumber: 537,
                                         columnNumber: 17
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 441,
+                                    lineNumber: 536,
                                     columnNumber: 15
                                 }, this),
                                 secretaries.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2192,12 +2443,12 @@ function Dashboard({ onLogout }) {
                                         children: "No secretaries added yet."
                                     }, void 0, false, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 445,
+                                        lineNumber: 540,
                                         columnNumber: 98
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 445,
+                                    lineNumber: 540,
                                     columnNumber: 17
                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
@@ -2213,7 +2464,7 @@ function Dashboard({ onLogout }) {
                                                                 children: sec.email
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 452,
+                                                                lineNumber: 547,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2224,13 +2475,13 @@ function Dashboard({ onLogout }) {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 453,
+                                                                lineNumber: 548,
                                                                 columnNumber: 27
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 451,
+                                                        lineNumber: 546,
                                                         columnNumber: 25
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2248,45 +2499,45 @@ function Dashboard({ onLogout }) {
                                                                 d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                                lineNumber: 456,
+                                                                lineNumber: 551,
                                                                 columnNumber: 106
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                            lineNumber: 456,
+                                                            lineNumber: 551,
                                                             columnNumber: 27
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                        lineNumber: 455,
+                                                        lineNumber: 550,
                                                         columnNumber: 25
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 450,
+                                                lineNumber: 545,
                                                 columnNumber: 23
                                             }, this)
                                         }, sec.id, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 449,
+                                            lineNumber: 544,
                                             columnNumber: 21
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 447,
+                                    lineNumber: 542,
                                     columnNumber: 17
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 433,
+                            lineNumber: 528,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 206,
+                    lineNumber: 291,
                     columnNumber: 9
                 }, this),
                 showAddModal && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(AddItemModal, {
@@ -2301,7 +2552,7 @@ function Dashboard({ onLogout }) {
                     }
                 }, void 0, false, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 467,
+                    lineNumber: 562,
                     columnNumber: 26
                 }, this),
                 showSecretaryModal && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(AddSecretaryModal, {
@@ -2316,7 +2567,7 @@ function Dashboard({ onLogout }) {
                     }
                 }, void 0, false, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 468,
+                    lineNumber: 563,
                     columnNumber: 32
                 }, this),
                 selectedItem && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(ItemDetailModal, {
@@ -2325,33 +2576,40 @@ function Dashboard({ onLogout }) {
                     onClose: ()=>setSelectedItem(null),
                     onDelete: ()=>handleDelete(selectedItem.id),
                     onStatusChange: (status)=>handleStatusChange(selectedItem.id, status),
-                    onInquiredChange: (val)=>handleInquiredChange(selectedItem.id, val)
+                    onCollectPayment: ()=>handleCollectPayment(selectedItem.id)
                 }, void 0, false, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 469,
+                    lineNumber: 564,
                     columnNumber: 26
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-            lineNumber: 183,
+            lineNumber: 267,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-        lineNumber: 182,
+        lineNumber: 266,
         columnNumber: 5
     }, this);
 }
-_s1(Dashboard, "BFXU+MT6SvUvoSwZ79qDEncTvHU=");
-_c4 = Dashboard;
-function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onInquiredChange }) {
+_s2(Dashboard, "BFXU+MT6SvUvoSwZ79qDEncTvHU=");
+_c5 = Dashboard;
+function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onCollectPayment }) {
     const statuses = [
         'bought',
         'arrived',
         'delivered'
     ];
     const profit = item.sold_price - item.bought_price;
+    const daysRemaining = getDaysRemaining(item.delivered_at);
+    const formatSource = (source)=>{
+        if (!source) return '';
+        if (source === 'no_stock') return 'No Stock';
+        if (source === 'indent') return 'Indent';
+        return source;
+    };
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50",
         onClick: onClose,
@@ -2368,7 +2626,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                             className: "w-full h-full object-contain"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 485,
+                            lineNumber: 588,
                             columnNumber: 13
                         }, this),
                         item.is_inquired && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2376,13 +2634,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                             children: "INQUIRED"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 486,
+                            lineNumber: 589,
                             columnNumber: 34
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 484,
+                    lineNumber: 587,
                     columnNumber: 11
                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                     className: "aspect-video bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative",
@@ -2399,12 +2657,12 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                 d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                             }, void 0, false, {
                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 490,
+                                lineNumber: 593,
                                 columnNumber: 109
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 490,
+                            lineNumber: 593,
                             columnNumber: 13
                         }, this),
                         item.is_inquired && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2412,13 +2670,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                             children: "INQUIRED"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 491,
+                            lineNumber: 594,
                             columnNumber: 34
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 489,
+                    lineNumber: 592,
                     columnNumber: 11
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2434,7 +2692,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: item.product_name
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 498,
+                                            lineNumber: 601,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2447,13 +2705,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             })
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 499,
+                                            lineNumber: 602,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 497,
+                                    lineNumber: 600,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2471,63 +2729,168 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             d: "M6 18L18 6M6 6l12 12"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 502,
+                                            lineNumber: 605,
                                             columnNumber: 94
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 502,
+                                        lineNumber: 605,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 501,
+                                    lineNumber: 604,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 496,
+                            lineNumber: 599,
                             columnNumber: 11
                         }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        item.is_inquired && item.inquired_list && item.inquired_list.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
-                                className: "flex items-center justify-between cursor-pointer",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "text-cyan-400 font-medium",
-                                        children: "Mark as Inquired"
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 509,
-                                        columnNumber: 15
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                        onClick: ()=>onInquiredChange(!item.is_inquired),
-                                        className: `w-12 h-6 rounded-full transition ${item.is_inquired ? 'bg-cyan-500' : 'bg-slate-600'}`,
-                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: `w-5 h-5 bg-white rounded-full transition transform ${item.is_inquired ? 'translate-x-6' : 'translate-x-0.5'}`
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
+                                    className: "text-cyan-400 font-medium mb-3 flex items-center gap-2",
+                                    children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("svg", {
+                                            className: "w-5 h-5",
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            viewBox: "0 0 24 24",
+                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("path", {
+                                                strokeLinecap: "round",
+                                                strokeLinejoin: "round",
+                                                strokeWidth: 2,
+                                                d: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            }, void 0, false, {
+                                                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                lineNumber: 613,
+                                                columnNumber: 96
+                                            }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 511,
+                                            lineNumber: 613,
                                             columnNumber: 17
-                                        }, this)
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 510,
-                                        columnNumber: 15
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 508,
-                                columnNumber: 13
-                            }, this)
-                        }, void 0, false, {
+                                        }, this),
+                                        "Inquired From (",
+                                        item.inquired_list.length,
+                                        ")"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 612,
+                                    columnNumber: 15
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    className: "space-y-3",
+                                    children: item.inquired_list.map((inq, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "bg-white/5 rounded-lg p-3",
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                    className: "flex items-center justify-between mb-2",
+                                                    children: [
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                            className: "text-cyan-300 text-sm font-medium",
+                                                            children: [
+                                                                "#",
+                                                                index + 1,
+                                                                " ",
+                                                                inq.name || 'Unnamed'
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 620,
+                                                            columnNumber: 23
+                                                        }, this),
+                                                        inq.price && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                            className: "text-cyan-400 font-medium",
+                                                            children: formatPeso(inq.price)
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 621,
+                                                            columnNumber: 37
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 619,
+                                                    columnNumber: 21
+                                                }, this),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                    className: "grid grid-cols-2 gap-2 text-sm",
+                                                    children: [
+                                                        inq.contact && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                            children: [
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                                    className: "text-slate-500",
+                                                                    children: "Contact"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 626,
+                                                                    columnNumber: 27
+                                                                }, this),
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                                    className: "text-white",
+                                                                    children: inq.contact
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 627,
+                                                                    columnNumber: 27
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 625,
+                                                            columnNumber: 25
+                                                        }, this),
+                                                        inq.source && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                            children: [
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                                    className: "text-slate-500",
+                                                                    children: "Source"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 632,
+                                                                    columnNumber: 27
+                                                                }, this),
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                                    className: "text-white",
+                                                                    children: formatSource(inq.source)
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 633,
+                                                                    columnNumber: 27
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 631,
+                                                            columnNumber: 25
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 623,
+                                                    columnNumber: 21
+                                                }, this)
+                                            ]
+                                        }, index, true, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 618,
+                                            columnNumber: 19
+                                        }, this))
+                                }, void 0, false, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 616,
+                                    columnNumber: 15
+                                }, this)
+                            ]
+                        }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 507,
-                            columnNumber: 11
+                            lineNumber: 611,
+                            columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "flex gap-2 mb-4 flex-wrap",
@@ -2537,7 +2900,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                     children: item.vat_type === 'vat_inclusive' ? 'VAT Inclusive' : 'Non-VAT'
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 517,
+                                    lineNumber: 644,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2548,7 +2911,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             className: "w-4 h-4"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 521,
+                                            lineNumber: 648,
                                             columnNumber: 15
                                         }, this),
                                         item.freight_type.charAt(0).toUpperCase() + item.freight_type.slice(1),
@@ -2556,13 +2919,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 520,
+                                    lineNumber: 647,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 516,
+                            lineNumber: 643,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2573,14 +2936,14 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                     children: "Delivery Status"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 527,
+                                    lineNumber: 654,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(StatusProgressBar, {
                                     status: item.status
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 528,
+                                    lineNumber: 655,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2591,18 +2954,18 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: status.charAt(0).toUpperCase() + status.slice(1)
                                         }, status, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 531,
+                                            lineNumber: 658,
                                             columnNumber: 17
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 529,
+                                    lineNumber: 656,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 526,
+                            lineNumber: 653,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2616,7 +2979,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Customer Name"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 540,
+                                            lineNumber: 667,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2624,13 +2987,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: item.customer_name
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 541,
+                                            lineNumber: 668,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 539,
+                                    lineNumber: 666,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2641,7 +3004,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Contact"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 544,
+                                            lineNumber: 671,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2649,13 +3012,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: item.contact || '-'
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 545,
+                                            lineNumber: 672,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 543,
+                                    lineNumber: 670,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2666,7 +3029,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Bought From"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 548,
+                                            lineNumber: 675,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2674,13 +3037,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: item.bought_from
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 549,
+                                            lineNumber: 676,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 547,
+                                    lineNumber: 674,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2691,7 +3054,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Purchaser"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 552,
+                                            lineNumber: 679,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2699,19 +3062,19 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: item.purchaser
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 553,
+                                            lineNumber: 680,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 551,
+                                    lineNumber: 678,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 538,
+                            lineNumber: 665,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2725,7 +3088,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Bought Price"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 559,
+                                            lineNumber: 686,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2733,13 +3096,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: formatPeso(item.bought_price)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 560,
+                                            lineNumber: 687,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 558,
+                                    lineNumber: 685,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2750,7 +3113,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Sold Price"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 563,
+                                            lineNumber: 690,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2758,13 +3121,13 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: formatPeso(item.sold_price)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 564,
+                                            lineNumber: 691,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 562,
+                                    lineNumber: 689,
                                     columnNumber: 13
                                 }, this),
                                 isAdmin && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2775,7 +3138,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             children: "Profit"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 568,
+                                            lineNumber: 695,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2786,19 +3149,19 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 569,
+                                            lineNumber: 696,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 567,
+                                    lineNumber: 694,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 557,
+                            lineNumber: 684,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2810,7 +3173,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                     children: "Close"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 575,
+                                    lineNumber: 702,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2829,48 +3192,110 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onI
                                                 d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 577,
+                                                lineNumber: 704,
                                                 columnNumber: 94
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 577,
+                                            lineNumber: 704,
                                             columnNumber: 15
                                         }, this),
                                         "Delete"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 576,
+                                    lineNumber: 703,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 574,
+                            lineNumber: 701,
                             columnNumber: 11
+                        }, this),
+                        item.status === 'delivered' && !item.payment_collected && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            onClick: onCollectPayment,
+                            className: `w-full mt-3 py-3 px-4 font-medium rounded-xl transition flex items-center justify-center gap-2 ${daysRemaining !== null && daysRemaining <= 0 ? 'bg-red-500 hover:bg-red-600 text-white' : daysRemaining !== null && daysRemaining <= 7 ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`,
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("svg", {
+                                    className: "w-5 h-5",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    viewBox: "0 0 24 24",
+                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("path", {
+                                        strokeLinecap: "round",
+                                        strokeLinejoin: "round",
+                                        strokeWidth: 2,
+                                        d: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                                    }, void 0, false, {
+                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                        lineNumber: 710,
+                                        columnNumber: 94
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 710,
+                                    columnNumber: 15
+                                }, this),
+                                "Collect Payment ",
+                                daysRemaining !== null && `(D-${Math.max(0, daysRemaining)})`
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                            lineNumber: 709,
+                            columnNumber: 13
+                        }, this),
+                        item.payment_collected && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "w-full mt-3 py-3 px-4 bg-green-500/20 text-green-400 font-medium rounded-xl text-center flex items-center justify-center gap-2",
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("svg", {
+                                    className: "w-5 h-5",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    viewBox: "0 0 24 24",
+                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("path", {
+                                        strokeLinecap: "round",
+                                        strokeLinejoin: "round",
+                                        strokeWidth: 2,
+                                        d: "M5 13l4 4L19 7"
+                                    }, void 0, false, {
+                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                        lineNumber: 716,
+                                        columnNumber: 94
+                                    }, this)
+                                }, void 0, false, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 716,
+                                    columnNumber: 15
+                                }, this),
+                                "Payment Collected"
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                            lineNumber: 715,
+                            columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 495,
+                    lineNumber: 598,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-            lineNumber: 482,
+            lineNumber: 585,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-        lineNumber: 481,
+        lineNumber: 584,
         columnNumber: 5
     }, this);
 }
-_c5 = ItemDetailModal;
+_c6 = ItemDetailModal;
 function AddItemModal({ userId, onClose, onAdd }) {
-    _s2();
+    _s3();
     const [formData, setFormData] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])({
         product_name: '',
         customer_name: '',
@@ -2880,9 +3305,9 @@ function AddItemModal({ userId, onClose, onAdd }) {
         bought_price: '',
         sold_price: '',
         freight_type: 'sea',
-        vat_type: 'vat_inclusive',
-        is_inquired: false
+        vat_type: 'vat_inclusive'
     });
+    const [inquiredList, setInquiredList] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [imageFile, setImageFile] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
     const [imagePreview, setImagePreview] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('');
     const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
@@ -2896,6 +3321,29 @@ function AddItemModal({ userId, onClose, onAdd }) {
             reader.readAsDataURL(file);
         }
     };
+    const addInquiry = ()=>{
+        if (inquiredList.length < 3) setInquiredList([
+            ...inquiredList,
+            {
+                name: '',
+                price: '',
+                contact: '',
+                source: 'no_stock',
+                customSource: ''
+            }
+        ]);
+    };
+    const removeInquiry = (index)=>setInquiredList(inquiredList.filter((_, i)=>i !== index));
+    const updateInquiry = (index, field, value)=>{
+        const updated = [
+            ...inquiredList
+        ];
+        updated[index] = {
+            ...updated[index],
+            [field]: value
+        };
+        setInquiredList(updated);
+    };
     const handleSubmit = async (e)=>{
         e.preventDefault();
         setError('');
@@ -2903,6 +3351,12 @@ function AddItemModal({ userId, onClose, onAdd }) {
         try {
             let imageUrl = null;
             if (imageFile) imageUrl = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$src$2f$lib$2f$supabase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["uploadImage"])(imageFile, userId);
+            const finalInquiredList = inquiredList.map((inq)=>({
+                    name: inq.name,
+                    price: inq.price ? Number(inq.price) : null,
+                    contact: inq.contact,
+                    source: inq.source === 'custom' ? inq.customSource : inq.source
+                }));
             const item = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$src$2f$lib$2f$supabase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["addItem"])({
                 product_name: formData.product_name,
                 customer_name: formData.customer_name,
@@ -2915,7 +3369,10 @@ function AddItemModal({ userId, onClose, onAdd }) {
                 status: 'bought',
                 freight_type: formData.freight_type,
                 vat_type: formData.vat_type,
-                is_inquired: formData.is_inquired,
+                is_inquired: inquiredList.length > 0,
+                inquired_list: inquiredList.length > 0 ? finalInquiredList : null,
+                delivered_at: null,
+                payment_collected: false,
                 user_id: userId
             });
             onAdd(item);
@@ -2938,7 +3395,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                             children: "Add New Item"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 621,
+                            lineNumber: 779,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2956,23 +3413,23 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     d: "M6 18L18 6M6 6l12 12"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 622,
+                                    lineNumber: 780,
                                     columnNumber: 171
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 622,
+                                lineNumber: 780,
                                 columnNumber: 92
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 622,
+                            lineNumber: 780,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 620,
+                    lineNumber: 778,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -2986,7 +3443,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     children: "Product Name *"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 626,
+                                    lineNumber: 784,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3001,13 +3458,13 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     required: true
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 627,
+                                    lineNumber: 785,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 625,
+                            lineNumber: 783,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3020,7 +3477,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Customer Name *"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 631,
+                                            lineNumber: 789,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3035,13 +3492,13 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             required: true
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 632,
+                                            lineNumber: 790,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 630,
+                                    lineNumber: 788,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3051,7 +3508,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Contact"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 635,
+                                            lineNumber: 793,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3065,19 +3522,19 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             placeholder: "Phone/Email"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 636,
+                                            lineNumber: 794,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 634,
+                                    lineNumber: 792,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 629,
+                            lineNumber: 787,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3090,7 +3547,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Bought From *"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 641,
+                                            lineNumber: 799,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3105,13 +3562,13 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             required: true
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 642,
+                                            lineNumber: 800,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 640,
+                                    lineNumber: 798,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3121,7 +3578,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Purchaser *"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 645,
+                                            lineNumber: 803,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3136,19 +3593,19 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             required: true
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 646,
+                                            lineNumber: 804,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 644,
+                                    lineNumber: 802,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 639,
+                            lineNumber: 797,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3161,7 +3618,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Bought Price (₱) *"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 651,
+                                            lineNumber: 809,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3178,13 +3635,13 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             required: true
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 652,
+                                            lineNumber: 810,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 650,
+                                    lineNumber: 808,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3194,7 +3651,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Sold Price (₱) *"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 655,
+                                            lineNumber: 813,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3211,19 +3668,19 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             required: true
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 656,
+                                            lineNumber: 814,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 654,
+                                    lineNumber: 812,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 649,
+                            lineNumber: 807,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3236,7 +3693,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "Freight Type"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 661,
+                                            lineNumber: 819,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -3252,7 +3709,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                                     children: "Sea Freight"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 663,
+                                                    lineNumber: 821,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -3260,7 +3717,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                                     children: "Land Freight"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 664,
+                                                    lineNumber: 822,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -3268,19 +3725,19 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                                     children: "Air Freight"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 665,
+                                                    lineNumber: 823,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 662,
+                                            lineNumber: 820,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 660,
+                                    lineNumber: 818,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3290,7 +3747,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                             children: "VAT"
                                         }, void 0, false, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 669,
+                                            lineNumber: 827,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -3306,7 +3763,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                                     children: "VAT Inclusive"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 671,
+                                                    lineNumber: 829,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -3314,62 +3771,25 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                                     children: "Non-VAT"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 672,
+                                                    lineNumber: 830,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                            lineNumber: 670,
+                                            lineNumber: 828,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 668,
+                                    lineNumber: 826,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 659,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
-                                className: "flex items-center gap-3 cursor-pointer",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
-                                        type: "checkbox",
-                                        checked: formData.is_inquired,
-                                        onChange: (e)=>setFormData({
-                                                ...formData,
-                                                is_inquired: e.target.checked
-                                            }),
-                                        className: "w-5 h-5 rounded border-cyan-500 text-cyan-500 focus:ring-cyan-500 bg-transparent"
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 680,
-                                        columnNumber: 15
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "text-cyan-400 font-medium",
-                                        children: "Mark as Inquired"
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 681,
-                                        columnNumber: 15
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 679,
-                                columnNumber: 13
-                            }, this)
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 678,
+                            lineNumber: 817,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3379,7 +3799,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     children: "Image"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 686,
+                                    lineNumber: 836,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3390,7 +3810,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     id: "image-upload"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 687,
+                                    lineNumber: 837,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -3402,7 +3822,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                         className: "max-h-32 rounded-lg"
                                     }, void 0, false, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 689,
+                                        lineNumber: 839,
                                         columnNumber: 31
                                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "text-center",
@@ -3419,36 +3839,270 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                                     d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                                                 }, void 0, false, {
                                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                    lineNumber: 691,
+                                                    lineNumber: 841,
                                                     columnNumber: 111
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 691,
+                                                lineNumber: 841,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                 children: "Click to upload image"
                                             }, void 0, false, {
                                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                                lineNumber: 692,
+                                                lineNumber: 842,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                        lineNumber: 690,
+                                        lineNumber: 840,
                                         columnNumber: 17
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 688,
+                                    lineNumber: 838,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 685,
+                            lineNumber: 835,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4",
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    className: "flex items-center justify-between mb-3",
+                                    children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                            className: "text-cyan-400 font-medium",
+                                            children: [
+                                                "Inquired From (",
+                                                inquiredList.length,
+                                                "/3)"
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 851,
+                                            columnNumber: 15
+                                        }, this),
+                                        inquiredList.length < 3 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                            type: "button",
+                                            onClick: addInquiry,
+                                            className: "text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1",
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("svg", {
+                                                    className: "w-4 h-4",
+                                                    fill: "none",
+                                                    stroke: "currentColor",
+                                                    viewBox: "0 0 24 24",
+                                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("path", {
+                                                        strokeLinecap: "round",
+                                                        strokeLinejoin: "round",
+                                                        strokeWidth: 2,
+                                                        d: "M12 4v16m8-8H4"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                        lineNumber: 854,
+                                                        columnNumber: 98
+                                                    }, this)
+                                                }, void 0, false, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 854,
+                                                    columnNumber: 19
+                                                }, this),
+                                                "Add"
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 853,
+                                            columnNumber: 17
+                                        }, this)
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 850,
+                                    columnNumber: 13
+                                }, this),
+                                inquiredList.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                    className: "text-slate-500 text-sm text-center py-2",
+                                    children: 'No inquiries added. Click "Add" to add up to 3.'
+                                }, void 0, false, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 859,
+                                    columnNumber: 43
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    className: "space-y-3",
+                                    children: inquiredList.map((inq, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "bg-white/5 rounded-lg p-3 border border-cyan-500/10",
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                    className: "flex items-center justify-between mb-2",
+                                                    children: [
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                            className: "text-cyan-300 text-sm font-medium",
+                                                            children: [
+                                                                "#",
+                                                                index + 1
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 864,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                            type: "button",
+                                                            onClick: ()=>removeInquiry(index),
+                                                            className: "text-red-400 hover:text-red-300 p-1",
+                                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("svg", {
+                                                                className: "w-4 h-4",
+                                                                fill: "none",
+                                                                stroke: "currentColor",
+                                                                viewBox: "0 0 24 24",
+                                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("path", {
+                                                                    strokeLinecap: "round",
+                                                                    strokeLinejoin: "round",
+                                                                    strokeWidth: 2,
+                                                                    d: "M6 18L18 6M6 6l12 12"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 866,
+                                                                    columnNumber: 102
+                                                                }, this)
+                                                            }, void 0, false, {
+                                                                fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                lineNumber: 866,
+                                                                columnNumber: 23
+                                                            }, this)
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 865,
+                                                            columnNumber: 21
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 863,
+                                                    columnNumber: 19
+                                                }, this),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                    className: "space-y-2",
+                                                    children: [
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                            type: "text",
+                                                            value: inq.name,
+                                                            onChange: (e)=>updateInquiry(index, 'name', e.target.value),
+                                                            className: "w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm",
+                                                            placeholder: "Supplier/Store name"
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 870,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                            className: "grid grid-cols-2 gap-2",
+                                                            children: [
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                                    type: "number",
+                                                                    value: inq.price,
+                                                                    onChange: (e)=>updateInquiry(index, 'price', e.target.value),
+                                                                    className: "w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm",
+                                                                    placeholder: "Price (₱)",
+                                                                    min: "0",
+                                                                    step: "0.01"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 872,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                                    type: "text",
+                                                                    value: inq.contact,
+                                                                    onChange: (e)=>updateInquiry(index, 'contact', e.target.value),
+                                                                    className: "w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm",
+                                                                    placeholder: "Contact"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 873,
+                                                                    columnNumber: 23
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 871,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                                                            value: inq.source,
+                                                            onChange: (e)=>updateInquiry(index, 'source', e.target.value),
+                                                            className: "w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm",
+                                                            children: [
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                                    value: "no_stock",
+                                                                    children: "No Stock"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 876,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                                    value: "indent",
+                                                                    children: "Indent"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 877,
+                                                                    columnNumber: 23
+                                                                }, this),
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                                    value: "custom",
+                                                                    children: "Custom..."
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                                    lineNumber: 878,
+                                                                    columnNumber: 23
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 875,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        inq.source === 'custom' && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                            type: "text",
+                                                            value: inq.customSource,
+                                                            onChange: (e)=>updateInquiry(index, 'customSource', e.target.value),
+                                                            className: "w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm",
+                                                            placeholder: "Custom source type"
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                            lineNumber: 881,
+                                                            columnNumber: 23
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                                    lineNumber: 869,
+                                                    columnNumber: 19
+                                                }, this)
+                                            ]
+                                        }, index, true, {
+                                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                            lineNumber: 862,
+                                            columnNumber: 17
+                                        }, this))
+                                }, void 0, false, {
+                                    fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                                    lineNumber: 860,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
+                            lineNumber: 849,
                             columnNumber: 11
                         }, this),
                         error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3456,7 +4110,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                             children: error
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 697,
+                            lineNumber: 889,
                             columnNumber: 21
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3469,7 +4123,7 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     children: "Cancel"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 699,
+                                    lineNumber: 891,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3479,37 +4133,37 @@ function AddItemModal({ userId, onClose, onAdd }) {
                                     children: loading ? 'Adding...' : 'Add Item'
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 700,
+                                    lineNumber: 892,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 698,
+                            lineNumber: 890,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 624,
+                    lineNumber: 782,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-            lineNumber: 619,
+            lineNumber: 777,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-        lineNumber: 618,
+        lineNumber: 776,
         columnNumber: 5
     }, this);
 }
-_s2(AddItemModal, "sfvkytYn6K1QkpY/hcFw7iieHPQ=");
-_c6 = AddItemModal;
+_s3(AddItemModal, "2H2FwfNoesUru/XsUtopqUK1TTs=");
+_c7 = AddItemModal;
 function AddSecretaryModal({ adminId, onClose, onAdd }) {
-    _s3();
+    _s4();
     const [email, setEmail] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('');
     const [password, setPassword] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('');
     const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
@@ -3547,7 +4201,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                             children: "Add Secretary"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 734,
+                            lineNumber: 926,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3565,23 +4219,23 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     d: "M6 18L18 6M6 6l12 12"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 735,
+                                    lineNumber: 927,
                                     columnNumber: 171
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 735,
+                                lineNumber: 927,
                                 columnNumber: 92
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 735,
+                            lineNumber: 927,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 733,
+                    lineNumber: 925,
                     columnNumber: 9
                 }, this),
                 success ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3601,17 +4255,17 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     d: "M5 13l4 4L19 7"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 740,
+                                    lineNumber: 932,
                                     columnNumber: 111
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 740,
+                                lineNumber: 932,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 739,
+                            lineNumber: 931,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3619,7 +4273,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                             children: "Secretary account created!"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 742,
+                            lineNumber: 934,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3627,13 +4281,13 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                             children: "They can now log in."
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 743,
+                            lineNumber: 935,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 738,
+                    lineNumber: 930,
                     columnNumber: 11
                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
                     onSubmit: handleSubmit,
@@ -3646,12 +4300,12 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                 children: "Secretaries cannot view profit information."
                             }, void 0, false, {
                                 fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                lineNumber: 748,
+                                lineNumber: 940,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 747,
+                            lineNumber: 939,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3661,7 +4315,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     children: "Email *"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 751,
+                                    lineNumber: 943,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3673,13 +4327,13 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     required: true
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 752,
+                                    lineNumber: 944,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 750,
+                            lineNumber: 942,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3689,7 +4343,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     children: "Password *"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 755,
+                                    lineNumber: 947,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -3702,13 +4356,13 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     required: true
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 756,
+                                    lineNumber: 948,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 754,
+                            lineNumber: 946,
                             columnNumber: 13
                         }, this),
                         error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3716,7 +4370,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                             children: error
                         }, void 0, false, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 758,
+                            lineNumber: 950,
                             columnNumber: 23
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3729,7 +4383,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     children: "Cancel"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 760,
+                                    lineNumber: 952,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$uniwork$2d$autotool$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3739,44 +4393,45 @@ function AddSecretaryModal({ adminId, onClose, onAdd }) {
                                     children: loading ? 'Creating...' : 'Create'
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                                    lineNumber: 761,
+                                    lineNumber: 953,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                            lineNumber: 759,
+                            lineNumber: 951,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-                    lineNumber: 746,
+                    lineNumber: 938,
                     columnNumber: 11
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-            lineNumber: 732,
+            lineNumber: 924,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Desktop/uniwork-autotool/src/components/Dashboard.tsx",
-        lineNumber: 731,
+        lineNumber: 923,
         columnNumber: 5
     }, this);
 }
-_s3(AddSecretaryModal, "Nx9AiQukDpLEbm52x3X2yr392pU=");
-_c7 = AddSecretaryModal;
-var _c, _c1, _c2, _c3, _c4, _c5, _c6, _c7;
+_s4(AddSecretaryModal, "Nx9AiQukDpLEbm52x3X2yr392pU=");
+_c8 = AddSecretaryModal;
+var _c, _c1, _c2, _c3, _c4, _c5, _c6, _c7, _c8;
 __turbopack_context__.k.register(_c, "TruckIcon");
 __turbopack_context__.k.register(_c1, "FreightIcon");
 __turbopack_context__.k.register(_c2, "StatusProgressBar");
 __turbopack_context__.k.register(_c3, "ScreenshotProtection");
-__turbopack_context__.k.register(_c4, "Dashboard");
-__turbopack_context__.k.register(_c5, "ItemDetailModal");
-__turbopack_context__.k.register(_c6, "AddItemModal");
-__turbopack_context__.k.register(_c7, "AddSecretaryModal");
+__turbopack_context__.k.register(_c4, "NotificationBell");
+__turbopack_context__.k.register(_c5, "Dashboard");
+__turbopack_context__.k.register(_c6, "ItemDetailModal");
+__turbopack_context__.k.register(_c7, "AddItemModal");
+__turbopack_context__.k.register(_c8, "AddSecretaryModal");
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }
