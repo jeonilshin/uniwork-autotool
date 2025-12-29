@@ -1,12 +1,23 @@
-import { supabase } from './supabase';
+import { supabase, getUserProfile, createUserProfile, UserRole } from './supabase';
 
 export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+  
+  // Check if user has a profile, if not create one as admin (first user)
+  if (data.user) {
+    const profile = await getUserProfile(data.user.id);
+    if (!profile) {
+      // First time login - create as admin
+      await createUserProfile({
+        id: data.user.id,
+        email: data.user.email || email,
+        role: 'admin',
+        created_by: null,
+      });
+    }
+  }
+  
   return data;
 }
 
@@ -25,30 +36,7 @@ export async function getUser() {
   return user;
 }
 
-// Run this in Supabase SQL Editor to create a user:
-/*
--- Create user via Supabase Dashboard > Authentication > Users > Add User
--- Or use the SQL below after enabling the extension:
-
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  created_at,
-  updated_at
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  gen_random_uuid(),
-  'authenticated',
-  'authenticated',
-  'admin@uniwork.com',
-  crypt('admin123', gen_salt('bf')),
-  now(),
-  now(),
-  now()
-);
-*/
+export async function getUserRole(userId: string): Promise<UserRole> {
+  const profile = await getUserProfile(userId);
+  return profile?.role || 'secretary';
+}
