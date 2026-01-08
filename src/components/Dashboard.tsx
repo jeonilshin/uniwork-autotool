@@ -337,7 +337,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const totalCost = items.reduce((sum, item) => sum + item.cost * item.qty, 0);
   const totalFreight = items.reduce((sum, item) => sum + item.freight_cost, 0);
   const deliveredItems = items.filter(item => item.status === 'delivered');
-  const profit = deliveredItems.reduce((sum, item) => sum + ((item.sale - item.cost) * item.qty - (item.discount || 0)), 0);
+  const profit = deliveredItems.reduce((sum, item) => sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * (item.discount || 0) / 100)), 0);
   const inquiredCount = items.filter(item => item.is_inquired).length;
 
   const [showStatistics, setShowStatistics] = useState(false);
@@ -608,7 +608,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                 <td className="p-3 text-right">
                                   <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
                                 </td>
-                                <td className="p-3 text-right text-orange-400">{item.discount ? formatPeso(item.discount) : '-'}</td>
+                                <td className="p-3 text-right text-orange-400">{item.discount ? `${item.discount}%` : '-'}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
                                   {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-500/20 text-purple-400">VAT</span>}
@@ -644,7 +644,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     <span className="text-cyan-400">Inquired #{idx + 1}:</span> {inq.supplier_name} {inq.contact && `(${inq.contact})`}
                                   </td>
                                   <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
-                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? formatPeso(inq.discount) : '-'}</td>
+                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
                                   <td colSpan={6}></td>
                                 </tr>
                               ))}
@@ -706,7 +706,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
 function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onCollectPayment, onEdit }: { item: InventoryItem; isAdmin: boolean; onClose: () => void; onDelete: () => void; onStatusChange: (status: ItemStatus) => void; onCollectPayment: () => void; onEdit: () => void }) {
   const statuses: ItemStatus[] = ['inquired', 'bought', 'arrived', 'delivered'];
-  const profit = (item.sale - item.cost) * item.qty - (item.discount || 0);
+  const profit = (item.sale - item.cost) * item.qty - (item.sale * item.qty * (item.discount || 0) / 100);
   const daysRemaining = getDaysRemaining(item.delivered_at);
   
   const getStatusButtonClass = (status: ItemStatus, isActive: boolean) => {
@@ -774,7 +774,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
                       </div>
                       <div>
                         <p className="text-slate-500">Discount</p>
-                        <p className="text-orange-400">{inq.discount ? formatPeso(inq.discount) : '-'}</p>
+                        <p className="text-orange-400">{inq.discount ? `${inq.discount}%` : '-'}</p>
                       </div>
                     </div>
                   </div>
@@ -901,7 +901,7 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
 
   const updateInquiry = (index: number, field: string, value: string) => {
     const updated = [...inquiredList];
-    if (['cost', 'discount'].includes(field)) {
+    if (field === 'cost') {
       updated[index] = { ...updated[index], [field]: formatNumberInput(value) };
     } else {
       updated[index] = { ...updated[index], [field]: value };
@@ -1002,8 +1002,8 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
               </button>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (₱)</label>
-              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Optional" />
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
+              <input type="number" min="0" max="100" step="0.1" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0-100" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
@@ -1073,7 +1073,7 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" value={inq.cost} onChange={(e) => updateInquiry(index, 'cost', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Cost *" />
-                      <input type="text" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount" />
+                      <input type="number" min="0" max="100" step="0.1" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount %" />
                     </div>
                   </div>
                 </div>
@@ -1136,7 +1136,7 @@ function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryIte
 
   const updateInquiry = (index: number, field: string, value: string) => {
     const updated = [...inquiredList];
-    if (['cost', 'discount'].includes(field)) {
+    if (field === 'cost') {
       updated[index] = { ...updated[index], [field]: formatNumberInput(value) };
     } else {
       updated[index] = { ...updated[index], [field]: value };
@@ -1233,8 +1233,8 @@ function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryIte
               </button>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (₱)</label>
-              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
+              <input type="number" min="0" max="100" step="0.1" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0-100" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
@@ -1304,7 +1304,7 @@ function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryIte
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" value={inq.cost} onChange={(e) => updateInquiry(index, 'cost', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Cost *" />
-                      <input type="text" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount" />
+                      <input type="number" min="0" max="100" step="0.1" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount %" />
                     </div>
                   </div>
                 </div>

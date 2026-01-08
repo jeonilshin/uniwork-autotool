@@ -41,7 +41,7 @@ var __TURBOPACK__imported__module__$5b$next$5d2f$internal$2f$font$2f$google$2f$i
 ;
 ;
 const metadata = {
-    title: "Uniwork - Inventory Management",
+    title: "Uniwide - Inventory Management",
     description: "Professional inventory management platform by Uniwork"
 };
 function RootLayout({ children }) {
