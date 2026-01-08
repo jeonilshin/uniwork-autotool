@@ -578,7 +578,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           <th className="hidden xl:table-cell text-left p-3 text-slate-400 font-medium">Customer</th>
                           <th className="hidden xl:table-cell text-right p-3 text-slate-400 font-medium">Freight</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Status</th>
-                          <th className="hidden lg:table-cell text-center p-3 text-slate-400 font-medium">D-Day</th>
+                          <th className="hidden xl:table-cell text-center p-3 text-slate-400 font-medium">D-Day</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -622,7 +622,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   </span>
                                   {item.payment_collected && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-green-500/20 text-green-400">Paid</span>}
                                 </td>
-                                <td className="hidden lg:table-cell p-3 text-center">
+                                <td className="hidden xl:table-cell p-3 text-center">
                                   {item.status === 'delivered' && !item.payment_collected && daysLeft !== null ? (
                                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${daysLeft <= 0 ? 'bg-red-500/20 text-red-400' : daysLeft <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
                                       {daysLeft <= 0 ? `${Math.abs(daysLeft)}d overdue` : `D-${daysLeft}`}
