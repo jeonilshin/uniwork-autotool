@@ -567,18 +567,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </th>
-                          <th className="text-left p-3 text-slate-400 font-medium">Date</th>
+                          <th className="hidden lg:table-cell text-left p-3 text-slate-400 font-medium">Date</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Qty</th>
-                          <th className="text-left p-3 text-slate-400 font-medium">Description</th>
+                          <th className="hidden md:table-cell text-left p-3 text-slate-400 font-medium">Description</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Cost</th>
-                          <th className="text-right p-3 text-slate-400 font-medium">Discount</th>
+                          <th className="hidden xl:table-cell text-right p-3 text-slate-400 font-medium">Discount</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Sale</th>
-                          <th className="text-left p-3 text-slate-400 font-medium">Supplier</th>
-                          <th className="text-left p-3 text-slate-400 font-medium">Customer</th>
-                          <th className="text-right p-3 text-slate-400 font-medium">Freight</th>
+                          <th className="hidden lg:table-cell text-left p-3 text-slate-400 font-medium">Supplier</th>
+                          <th className="hidden xl:table-cell text-left p-3 text-slate-400 font-medium">Customer</th>
+                          <th className="hidden xl:table-cell text-right p-3 text-slate-400 font-medium">Freight</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Status</th>
-                          <th className="text-center p-3 text-slate-400 font-medium">D-Day</th>
+                          <th className="hidden lg:table-cell text-center p-3 text-slate-400 font-medium">D-Day</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -596,7 +596,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     </button>
                                   )}
                                 </td>
-                                <td className="p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
+                                <td className="hidden lg:table-cell p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
                                 <td className="p-3">
                                   <div className="flex items-center gap-2">
                                     {item.image_url && <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
@@ -604,25 +604,25 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   </div>
                                 </td>
                                 <td className="p-3 text-center text-slate-300">{item.qty}</td>
-                                <td className="p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
+                                <td className="hidden md:table-cell p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
                                 </td>
-                                <td className="p-3 text-right text-orange-400">{item.discount ? `${item.discount}%` : '-'}</td>
+                                <td className="hidden xl:table-cell p-3 text-right text-orange-400">{item.discount ? `${item.discount}%` : '-'}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
                                   {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-500/20 text-purple-400">VAT</span>}
                                 </td>
-                                <td className="p-3 text-slate-300">{item.supplier_name}</td>
-                                <td className="p-3 text-slate-300">{item.customer}</td>
-                                <td className="p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
+                                <td className="hidden lg:table-cell p-3 text-slate-300">{item.supplier_name}</td>
+                                <td className="hidden xl:table-cell p-3 text-slate-300">{item.customer}</td>
+                                <td className="hidden xl:table-cell p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
                                 <td className="p-3 text-center">
                                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
                                     {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                                   </span>
                                   {item.payment_collected && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-green-500/20 text-green-400">Paid</span>}
                                 </td>
-                                <td className="p-3 text-center">
+                                <td className="hidden lg:table-cell p-3 text-center">
                                   {item.status === 'delivered' && !item.payment_collected && daysLeft !== null ? (
                                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${daysLeft <= 0 ? 'bg-red-500/20 text-red-400' : daysLeft <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
                                       {daysLeft <= 0 ? `${Math.abs(daysLeft)}d overdue` : `D-${daysLeft}`}
@@ -640,12 +640,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   <td className="p-2 pl-6 text-slate-500">
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
                                   </td>
-                                  <td className="p-2 text-slate-500 text-xs" colSpan={4}>
-                                    <span className="text-cyan-400">Inquired #{idx + 1}:</span> {inq.supplier_name} {inq.contact && `(${inq.contact})`}
+                                  <td className="hidden lg:table-cell"></td>
+                                  <td className="p-2 text-slate-500 text-xs" colSpan={2}>
+                                    <span className="text-cyan-400">Inquired #{idx + 1}:</span> {inq.supplier_name}
                                   </td>
+                                  <td className="hidden md:table-cell"></td>
                                   <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
-                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
-                                  <td colSpan={6}></td>
+                                  <td className="hidden xl:table-cell p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
+                                  <td colSpan={2}></td>
+                                  <td className="hidden lg:table-cell"></td>
+                                  <td className="hidden xl:table-cell" colSpan={2}></td>
+                                  <td className="hidden lg:table-cell"></td>
                                 </tr>
                               ))}
                             </React.Fragment>

@@ -1,9 +1,4 @@
-[00:00:01.137] Server  LOG     ✓ Ready in 636ms
-[00:00:17.202] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:45.020] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:09.865] Server  LOG     ✓ Compiled in 42ms
-[00:01:16.752] Server  LOG     ✓ Compiled in 33ms
-[00:01:27.109] Server  LOG     ✓ Compiled in 31ms
-[00:01:28.492] Server  LOG     ✓ Compiled in 37ms
-[00:02:18.600] Server  LOG     ✓ Compiled in 41ms
-[00:02:20.970] Server  LOG     ✓ Compiled in 30ms
+[00:00:00.854] Server  LOG     ✓ Ready in 663ms
+[00:00:02.653] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:03.694] Browser ERROR   {"__isAuthError":true,"code":"refresh_token_not_found","name":"AuthApiError","status":400}
+[00:00:07.900] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
