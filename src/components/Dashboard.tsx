@@ -559,7 +559,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 /* List View */
                 <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[900px]">
                       <thead>
                         <tr className="border-b border-white/10 bg-white/5">
                           <th className="text-left p-3 text-slate-400 font-medium">
@@ -567,18 +567,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </th>
-                          <th className="hidden lg:table-cell text-left p-3 text-slate-400 font-medium">Date</th>
+                          <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">Date</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Qty</th>
-                          <th className="hidden md:table-cell text-left p-3 text-slate-400 font-medium">Description</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Description</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Cost</th>
-                          <th className="hidden xl:table-cell text-right p-3 text-slate-400 font-medium">Discount</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Discount</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Sale</th>
-                          <th className="hidden lg:table-cell text-left p-3 text-slate-400 font-medium">Supplier</th>
-                          <th className="hidden xl:table-cell text-left p-3 text-slate-400 font-medium">Customer</th>
-                          <th className="hidden xl:table-cell text-right p-3 text-slate-400 font-medium">Freight</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Supplier</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Customer</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Freight</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Status</th>
-                          <th className="hidden xl:table-cell text-center p-3 text-slate-400 font-medium">D-Day</th>
+                          <th className="text-center p-3 text-slate-400 font-medium whitespace-nowrap">D-Day</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -596,7 +596,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     </button>
                                   )}
                                 </td>
-                                <td className="hidden lg:table-cell p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
+                                <td className="p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
                                 <td className="p-3">
                                   <div className="flex items-center gap-2">
                                     {item.image_url && <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
@@ -604,27 +604,27 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   </div>
                                 </td>
                                 <td className="p-3 text-center text-slate-300">{item.qty}</td>
-                                <td className="hidden md:table-cell p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
+                                <td className="p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
                                 </td>
-                                <td className="hidden xl:table-cell p-3 text-right text-orange-400">{item.discount ? `${item.discount}%` : '-'}</td>
+                                <td className="p-3 text-right text-orange-400">{item.discount ? `${item.discount}%` : '-'}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
                                   {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-500/20 text-purple-400">VAT</span>}
                                 </td>
-                                <td className="hidden lg:table-cell p-3 text-slate-300">{item.supplier_name}</td>
-                                <td className="hidden xl:table-cell p-3 text-slate-300">{item.customer}</td>
-                                <td className="hidden xl:table-cell p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
+                                <td className="p-3 text-slate-300">{item.supplier_name}</td>
+                                <td className="p-3 text-slate-300">{item.customer}</td>
+                                <td className="p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
                                 <td className="p-3 text-center">
                                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
                                     {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                                   </span>
                                   {item.payment_collected && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-green-500/20 text-green-400">Paid</span>}
                                 </td>
-                                <td className="hidden xl:table-cell p-3 text-center">
+                                <td className="p-3 text-center whitespace-nowrap">
                                   {item.status === 'delivered' && !item.payment_collected && daysLeft !== null ? (
-                                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${daysLeft <= 0 ? 'bg-red-500/20 text-red-400' : daysLeft <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                                    <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${daysLeft <= 0 ? 'bg-red-500/20 text-red-400' : daysLeft <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
                                       {daysLeft <= 0 ? `${Math.abs(daysLeft)}d overdue` : `D-${daysLeft}`}
                                     </span>
                                   ) : item.payment_collected ? (
@@ -640,17 +640,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   <td className="p-2 pl-6 text-slate-500">
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
                                   </td>
-                                  <td className="hidden lg:table-cell"></td>
-                                  <td className="p-2 text-slate-500 text-xs" colSpan={2}>
-                                    <span className="text-cyan-400">Inquired #{idx + 1}:</span> {inq.supplier_name}
+                                  <td></td>
+                                  <td className="p-2 text-slate-500 text-xs">
+                                    <span className="text-cyan-400">#{idx + 1}</span> {inq.supplier_name}
                                   </td>
-                                  <td className="hidden md:table-cell"></td>
+                                  <td></td>
+                                  <td></td>
                                   <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
-                                  <td className="hidden xl:table-cell p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
-                                  <td colSpan={2}></td>
-                                  <td className="hidden lg:table-cell"></td>
-                                  <td className="hidden xl:table-cell" colSpan={2}></td>
-                                  <td className="hidden lg:table-cell"></td>
+                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
+                                  <td colSpan={6}></td>
                                 </tr>
                               ))}
                             </React.Fragment>
@@ -698,10 +696,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           )}
         </main>
 
-        {showAddModal && <AddItemModal userId={userId} onClose={() => setShowAddModal(false)} onAdd={(item) => { setItems([item, ...items]); setShowAddModal(false); }} />}
+        {showAddModal && <AddItemModal userId={userId} items={items} onClose={() => setShowAddModal(false)} onAdd={(item) => { setItems([item, ...items]); setShowAddModal(false); }} />}
         {showSecretaryModal && <AddSecretaryModal adminId={userId} onClose={() => setShowSecretaryModal(false)} onAdd={(sec) => { setSecretaries([sec, ...secretaries]); setShowSecretaryModal(false); }} />}
         {selectedItem && <ItemDetailModal item={selectedItem} isAdmin={isAdmin} onClose={() => setSelectedItem(null)} onDelete={() => handleDelete(selectedItem.id)} onStatusChange={(status) => handleStatusChange(selectedItem.id, status)} onCollectPayment={() => handleCollectPayment(selectedItem.id)} onEdit={() => handleEdit(selectedItem)} />}
-        {showEditModal && editingItem && <EditItemModal item={editingItem} userId={userId} onClose={() => { setShowEditModal(false); setEditingItem(null); }} onUpdate={handleUpdateItem} />}
+        {showEditModal && editingItem && <EditItemModal item={editingItem} userId={userId} items={items} onClose={() => { setShowEditModal(false); setEditingItem(null); }} onUpdate={handleUpdateItem} />}
         {showStatistics && <Statistics items={items} isAdmin={isAdmin} onClose={() => setShowStatistics(false)} />}
       </div>
     </ScreenshotProtection>
@@ -873,7 +871,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
 }
 
 
-function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () => void; onAdd: (item: InventoryItem) => void }) {
+function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items: InventoryItem[]; onClose: () => void; onAdd: (item: InventoryItem) => void }) {
   const [formData, setFormData] = useState({
     unit: '', qty: '1', description: '', cost: '', vat_type: 'non_vat' as VatType, discount: '', sale: '',
     supplier_name: '', contact: '', customer: '', freight_cost: '', freight_type: 'sea' as FreightType,
@@ -883,6 +881,29 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
   const [imagePreview, setImagePreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Get unique descriptions from existing items
+  const allDescriptions = [...new Set(items.map(item => item.description).filter(Boolean))];
+
+  const handleDescriptionChange = (value: string) => {
+    setFormData({ ...formData, description: value });
+    if (value.length >= 2) {
+      const filtered = allDescriptions.filter(desc => 
+        desc.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectSuggestion = (desc: string) => {
+    setFormData({ ...formData, description: desc });
+    setShowSuggestions(false);
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -989,9 +1010,32 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
           </div>
 
           {/* Description */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
-            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Item description" required />
+            <input 
+              type="text" 
+              value={formData.description} 
+              onChange={(e) => handleDescriptionChange(e.target.value)} 
+              onFocus={() => formData.description.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+              placeholder="Item description" 
+              required 
+            />
+            {showSuggestions && (
+              <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                {suggestions.map((desc, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectSuggestion(desc)}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                  >
+                    {desc}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Cost, VAT, Discount, Sale */}
@@ -1098,7 +1142,7 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
 }
 
 
-function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryItem; userId: string; onClose: () => void; onUpdate: (item: InventoryItem) => void }) {
+function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: InventoryItem; userId: string; items: InventoryItem[]; onClose: () => void; onUpdate: (item: InventoryItem) => void }) {
   const formatNum = (n: number | null | undefined) => (n || 0).toLocaleString('en-PH');
   const [formData, setFormData] = useState({
     unit: item.unit, qty: item.qty.toString(), description: item.description,
@@ -1114,6 +1158,29 @@ function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryIte
       discount: inq.discount ? formatNum(inq.discount) : '',
     })) || []
   );
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Get unique descriptions from existing items
+  const allDescriptions = [...new Set(items.map(i => i.description).filter(Boolean))];
+
+  const handleDescriptionChange = (value: string) => {
+    setFormData({ ...formData, description: value });
+    if (value.length >= 2) {
+      const filtered = allDescriptions.filter(desc => 
+        desc.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectSuggestion = (desc: string) => {
+    setFormData({ ...formData, description: desc });
+    setShowSuggestions(false);
+  };
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(item.image_url || '');
   const [loading, setLoading] = useState(false);
@@ -1220,9 +1287,31 @@ function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryIte
           </div>
 
           {/* Description */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
-            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            <input 
+              type="text" 
+              value={formData.description} 
+              onChange={(e) => handleDescriptionChange(e.target.value)} 
+              onFocus={() => formData.description.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+              required 
+            />
+            {showSuggestions && (
+              <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                {suggestions.map((desc, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectSuggestion(desc)}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                  >
+                    {desc}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Cost, VAT, Discount, Sale */}

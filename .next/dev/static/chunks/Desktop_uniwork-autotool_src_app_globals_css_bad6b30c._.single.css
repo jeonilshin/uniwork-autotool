@@ -687,6 +687,10 @@
     min-width: calc(var(--spacing) * 0);
   }
 
+  .min-w-\[900px\] {
+    min-width: 900px;
+  }
+
   .flex-1 {
     flex: 1;
   }
@@ -1630,6 +1634,18 @@
   }
 
   @media (hover: hover) {
+    .hover\:bg-emerald-500\/20:hover {
+      background-color: #00bb7f33;
+    }
+
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-emerald-500\/20:hover {
+        background-color: color-mix(in oklab, var(--color-emerald-500) 20%, transparent);
+      }
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:bg-emerald-600:hover {
       background-color: var(--color-emerald-600);
     }
@@ -1810,6 +1826,12 @@
   }
 
   @media (min-width: 40rem) {
+    .sm\:table-cell {
+      display: table-cell;
+    }
+  }
+
+  @media (min-width: 40rem) {
     .sm\:grid-cols-3 {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1901,6 +1923,12 @@
 
   @media (min-width: 80rem) {
     .xl\:table-cell {
+      display: table-cell;
+    }
+  }
+
+  @media (min-width: 96rem) {
+    .\32 xl\:table-cell {
       display: table-cell;
     }
   }
