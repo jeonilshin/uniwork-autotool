@@ -5,7 +5,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export type ItemStatus = "bought" | "arrived" | "delivered";
+export type ItemStatus = "inquired" | "bought" | "arrived" | "delivered";
 export type FreightType = "sea" | "land" | "air";
 export type VatType = "vat_inclusive" | "non_vat";
 export type UserRole = "admin" | "secretary";
@@ -18,54 +18,44 @@ export interface UserProfile {
   created_at: string;
 }
 
-export interface InquiredInfo {
-  name: string;
-  price: number | null;
+export interface InquiredSupplier {
+  supplier_name: string;
   contact: string;
-  source: string;
+  cost: number;
+  discount: number | null;
 }
 
 export interface InventoryItem {
   id: string;
-  product_name: string;
-  customer_name: string;
-  contact: string;
-  bought_from: string;
-  purchaser: string;
-  bought_price: number;
-  sold_price: number;
   image_url: string | null;
-  status: ItemStatus;
-  freight_type: FreightType;
+  brand: string;
+  unit: string;
+  qty: number;
+  description: string;
+  cost: number;
   vat_type: VatType;
+  discount: number | null;
+  sale: number;
+  supplier_name: string;
+  contact: string;
+  customer: string;
+  freight_cost: number;
+  freight_type: FreightType;
+  status: ItemStatus;
   is_inquired: boolean;
-  inquired_list: InquiredInfo[] | null;
+  inquired_list: InquiredSupplier[] | null;
   delivered_at: string | null;
   payment_collected: boolean;
   created_at: string;
   user_id: string;
 }
 
-export interface InquiryItem {
-  id: string;
-  product_name: string;
-  customer_name: string;
-  contact: string;
-  notes: string;
-  created_at: string;
-  user_id: string;
-}
-
-// Keep for backward compatibility but not used
-export type { InquiryItem as _InquiryItem };
-
 export interface FilterOptions {
   status?: ItemStatus | "all";
   freightType?: FreightType | "all";
-  vatType?: VatType | "all";
   inquired?: boolean | "all";
-  minPrice?: number;
-  maxPrice?: number;
+  minCost?: number;
+  maxCost?: number;
   searchQuery?: string;
 }
 
@@ -89,7 +79,6 @@ export async function getSecretaries(adminId: string): Promise<UserProfile[]> {
 }
 
 export async function deleteSecretary(secretaryId: string): Promise<boolean> {
-  // Delete from user_profiles
   const { error } = await supabase.from("user_profiles").delete().eq("id", secretaryId);
   if (error) throw error;
   return true;
@@ -107,12 +96,11 @@ export async function getFilteredItems(filters: FilterOptions): Promise<Inventor
 
   if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
   if (filters.freightType && filters.freightType !== "all") query = query.eq("freight_type", filters.freightType);
-  if (filters.vatType && filters.vatType !== "all") query = query.eq("vat_type", filters.vatType);
   if (filters.inquired !== undefined && filters.inquired !== "all") query = query.eq("is_inquired", filters.inquired);
-  if (filters.minPrice !== undefined) query = query.gte("sold_price", filters.minPrice);
-  if (filters.maxPrice !== undefined) query = query.lte("sold_price", filters.maxPrice);
+  if (filters.minCost !== undefined) query = query.gte("cost", filters.minCost);
+  if (filters.maxCost !== undefined) query = query.lte("cost", filters.maxCost);
   if (filters.searchQuery) {
-    query = query.or(`product_name.ilike.%${filters.searchQuery}%,customer_name.ilike.%${filters.searchQuery}%,bought_from.ilike.%${filters.searchQuery}%,purchaser.ilike.%${filters.searchQuery}%`);
+    query = query.or(`brand.ilike.%${filters.searchQuery}%,description.ilike.%${filters.searchQuery}%,supplier_name.ilike.%${filters.searchQuery}%,customer.ilike.%${filters.searchQuery}%`);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
@@ -126,9 +114,18 @@ export async function addItem(item: Omit<InventoryItem, "id" | "created_at">): P
   return data;
 }
 
+export async function updateItem(id: string, updates: Partial<Omit<InventoryItem, "id" | "created_at" | "user_id">>): Promise<InventoryItem> {
+  const { data, error } = await supabase.from("items").update(updates).eq("id", id).select().single();
+  if (error) {
+    console.error("Supabase error:", error);
+    throw new Error(error.message || "Failed to update item");
+  }
+  if (!data) throw new Error("No data returned");
+  return data;
+}
+
 export async function updateItemStatus(id: string, status: ItemStatus): Promise<InventoryItem> {
   const updateData: { status: ItemStatus; delivered_at?: string | null } = { status };
-  // Set delivered_at when status changes to delivered
   if (status === 'delivered') {
     updateData.delivered_at = new Date().toISOString();
   } else {
@@ -153,12 +150,6 @@ export async function collectPayment(id: string): Promise<InventoryItem> {
   return data;
 }
 
-export async function updateItemInquired(id: string, is_inquired: boolean): Promise<InventoryItem> {
-  const { data, error } = await supabase.from("items").update({ is_inquired }).eq("id", id).select().single();
-  if (error) throw error;
-  return data;
-}
-
 export async function deleteItem(id: string): Promise<boolean> {
   const { error } = await supabase.from("items").delete().eq("id", id);
   if (error) throw error;
@@ -176,15 +167,12 @@ export async function uploadImage(file: File, userId: string): Promise<string> {
   return data.publicUrl;
 }
 
-// Create secretary account using Supabase Admin (requires service role key on server)
 export async function inviteSecretary(email: string, password: string, adminId: string): Promise<{ success: boolean; error?: string; profile?: UserProfile }> {
   try {
-    // Sign up the secretary
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     if (!data.user) throw new Error("Failed to create user");
 
-    // Create their profile as secretary
     const profile = await createUserProfile({
       id: data.user.id,
       email: email,

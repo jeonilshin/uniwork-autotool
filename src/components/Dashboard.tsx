@@ -1,18 +1,30 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { signOut, getUser, getUserRole } from '@/lib/auth';
 import {
-  supabase, getFilteredItems, addItem, deleteItem, uploadImage, updateItemStatus, collectPayment,
+  supabase, getFilteredItems, addItem, deleteItem, uploadImage, updateItemStatus, collectPayment, updateItem,
   getSecretaries, inviteSecretary, deleteSecretary,
-  InventoryItem, ItemStatus, FreightType, VatType, FilterOptions, UserRole, UserProfile, InquiredInfo,
+  InventoryItem, ItemStatus, FreightType, VatType, FilterOptions, UserRole, UserProfile, InquiredSupplier,
 } from '@/lib/supabase';
+import Statistics from './Statistics';
 
 interface DashboardProps {
   onLogout: () => void;
 }
 
-const formatPeso = (amount: number) => `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatPeso = (amount: number | null | undefined) => `₱${(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatDate = (date: string) => new Date(date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+
+// Status colors: inquired=blue, bought=red, arrived=yellow, delivered=green
+const getStatusBadgeClass = (status: ItemStatus) => {
+  switch (status) {
+    case 'inquired': return 'bg-blue-500/20 text-blue-400';
+    case 'bought': return 'bg-red-500/20 text-red-400';
+    case 'arrived': return 'bg-yellow-500/20 text-yellow-400';
+    case 'delivered': return 'bg-emerald-500/20 text-emerald-400';
+  }
+};
 
 const TruckIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -27,25 +39,45 @@ const FreightIcon = ({ type, className }: { type: FreightType; className?: strin
 };
 
 const StatusProgressBar = ({ status }: { status: ItemStatus }) => {
-  const steps: ItemStatus[] = ['bought', 'arrived', 'delivered'];
+  const steps: ItemStatus[] = ['inquired', 'bought', 'arrived', 'delivered'];
   const currentIndex = steps.indexOf(status);
   const progress = (currentIndex / (steps.length - 1)) * 100;
+  
+  // Colors: inquired=blue, bought=red, arrived=yellow, delivered=green
+  const getStepColor = (step: ItemStatus, isActive: boolean) => {
+    if (!isActive) return 'text-slate-500';
+    switch (step) {
+      case 'inquired': return 'text-blue-400';
+      case 'bought': return 'text-red-400';
+      case 'arrived': return 'text-yellow-400';
+      case 'delivered': return 'text-emerald-400';
+    }
+  };
+  
+  const getCurrentColor = () => {
+    switch (status) {
+      case 'inquired': return 'bg-blue-500';
+      case 'bought': return 'bg-red-500';
+      case 'arrived': return 'bg-yellow-500';
+      case 'delivered': return 'bg-emerald-500';
+    }
+  };
 
   return (
     <div className="w-full">
       <div className="relative">
         <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+          <div className={'h-full transition-all duration-500 ' + getCurrentColor()} style={{ width: `${progress}%` }} />
         </div>
         <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-500" style={{ left: `calc(${progress}% - 12px)` }}>
-          <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30">
+          <div className={'w-6 h-6 rounded-full flex items-center justify-center shadow-lg ' + getCurrentColor()}>
             <TruckIcon className="w-3 h-3 text-white" />
           </div>
         </div>
       </div>
       <div className="flex justify-between mt-2 text-xs">
         {steps.map((step, i) => (
-          <span key={step} className={i <= currentIndex ? 'text-emerald-400' : 'text-slate-500'}>
+          <span key={step} className={getStepColor(step, i <= currentIndex)}>
             {step.charAt(0).toUpperCase() + step.slice(1)}
           </span>
         ))}
@@ -97,6 +129,7 @@ const getDaysRemaining = (deliveredAt: string | null): number | null => {
   return Math.ceil(diff / (24 * 60 * 60 * 1000));
 };
 
+
 const NotificationBell = ({ items, onSelectItem }: { items: InventoryItem[]; onSelectItem: (item: InventoryItem) => void }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   
@@ -144,13 +177,13 @@ const NotificationBell = ({ items, onSelectItem }: { items: InventoryItem[]; onS
                     <div className="flex items-start gap-3">
                       <div className={`w-2 h-2 rounded-full mt-2 ${isOverdue ? 'bg-red-500' : 'bg-amber-500'}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{item.product_name}</p>
-                        <p className="text-slate-400 text-sm">{item.customer_name}</p>
+                        <p className="text-white font-medium truncate">{item.brand} - {item.description}</p>
+                        <p className="text-slate-400 text-sm">{item.customer}</p>
                         <p className={`text-sm mt-1 ${isOverdue ? 'text-red-400' : 'text-amber-400'}`}>
                           {isOverdue ? `Payment overdue by ${Math.abs(days!)} days` : `${days} days left to collect`}
                         </p>
                       </div>
-                      <span className="text-emerald-400 font-medium text-sm">{formatPeso(item.sold_price)}</span>
+                      <span className="text-emerald-400 font-medium text-sm">{formatPeso(item.sale)}</span>
                     </div>
                   </button>
                 );
@@ -171,15 +204,47 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSecretaryModal, setShowSecretaryModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<FilterOptions>({ status: 'all', freightType: 'all', vatType: 'all', inquired: 'all' });
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState<FilterOptions>({ status: 'all', freightType: 'all', inquired: 'all' });
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
   const [userRole, setUserRole] = useState<UserRole>('secretary');
 
   const isAdmin = userRole === 'admin';
+
+  // Toggle all rows expanded/collapsed
+  const [allExpanded, setAllExpanded] = useState(true);
+
+  const toggleAllRows = () => {
+    if (allExpanded) {
+      setExpandedRows(new Set());
+    } else {
+      setExpandedRows(new Set(items.filter(i => i.is_inquired && i.inquired_list?.length).map(i => i.id)));
+    }
+    setAllExpanded(!allExpanded);
+  };
+
+  const toggleRow = (id: string) => {
+    const newSet = new Set(expandedRows);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setExpandedRows(newSet);
+  };
+
+  // Initialize expanded rows when items load
+  useEffect(() => {
+    if (items.length > 0 && allExpanded) {
+      setExpandedRows(new Set(items.filter(i => i.is_inquired && i.inquired_list?.length).map(i => i.id)));
+    }
+  }, [items, allExpanded]);
 
   const fetchItems = useCallback(async () => {
     try { const data = await getFilteredItems({ ...filters, searchQuery }); setItems(data); }
@@ -256,17 +321,33 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const totalBought = items.reduce((sum, item) => sum + item.bought_price, 0);
-  const totalSold = items.reduce((sum, item) => sum + item.sold_price, 0);
+  const handleEdit = (item: InventoryItem) => {
+    setEditingItem(item);
+    setShowEditModal(true);
+    setSelectedItem(null);
+  };
+
+  const handleUpdateItem = async (updatedItem: InventoryItem) => {
+    setItems(items.map(item => (item.id === updatedItem.id ? updatedItem : item)));
+    setShowEditModal(false);
+    setEditingItem(null);
+  };
+
+  // Time-based filtering helpers - simplified for dashboard
+  const totalCost = items.reduce((sum, item) => sum + item.cost * item.qty, 0);
+  const totalFreight = items.reduce((sum, item) => sum + item.freight_cost, 0);
   const deliveredItems = items.filter(item => item.status === 'delivered');
-  const profit = deliveredItems.reduce((sum, item) => sum + (item.sold_price - item.bought_price), 0);
+  const profit = deliveredItems.reduce((sum, item) => sum + ((item.sale - item.cost) * item.qty - (item.discount || 0)), 0);
   const inquiredCount = items.filter(item => item.is_inquired).length;
+
+  const [showStatistics, setShowStatistics] = useState(false);
+
 
   return (
     <ScreenshotProtection enabled={!isAdmin}>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <header className="bg-white/5 backdrop-blur-lg border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
@@ -288,47 +369,56 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
           {/* Tabs */}
           <div className="flex gap-2 mb-6">
             <button onClick={() => setActiveTab('inventory')} className={`px-6 py-3 rounded-xl font-medium transition ${activeTab === 'inventory' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}>
               Inventory
             </button>
             {isAdmin && (
-              <button onClick={() => setActiveTab('secretaries')} className={`px-6 py-3 rounded-xl font-medium transition ${activeTab === 'secretaries' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}>
-                Secretaries ({secretaries.length})
-              </button>
+              <>
+                <button onClick={() => setActiveTab('secretaries')} className={`px-6 py-3 rounded-xl font-medium transition ${activeTab === 'secretaries' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}>
+                  Secretaries ({secretaries.length})
+                </button>
+                <button onClick={() => setShowStatistics(true)} className="px-6 py-3 rounded-xl font-medium transition bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  Statistics
+                </button>
+              </>
             )}
           </div>
 
           {activeTab === 'inventory' ? (
             <>
-              {/* Stats */}
-              <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'} gap-4 mb-8`}>
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                  <p className="text-slate-400 text-sm">Total Items</p>
-                  <p className="text-2xl font-bold text-white">{items.length}</p>
-                </div>
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                  <p className="text-slate-400 text-sm">Inquired</p>
-                  <p className="text-2xl font-bold text-cyan-400">{inquiredCount}</p>
-                </div>
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                  <p className="text-slate-400 text-sm">Total Bought</p>
-                  <p className="text-2xl font-bold text-white">{formatPeso(totalBought)}</p>
-                </div>
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                  <p className="text-slate-400 text-sm">Total Sold</p>
-                  <p className="text-2xl font-bold text-white">{formatPeso(totalSold)}</p>
-                </div>
-                {isAdmin && (
+              {/* Stats - Simple Overview */}
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-white mb-4">Overview</h2>
+                <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'} gap-4`}>
                   <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                    <p className="text-slate-400 text-sm">Profit (Delivered)</p>
-                    <p className={`text-2xl font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {profit >= 0 ? '+' : '-'}{formatPeso(Math.abs(profit))}
-                    </p>
+                    <p className="text-slate-400 text-sm">Total Items</p>
+                    <p className="text-2xl font-bold text-white">{items.length}</p>
                   </div>
-                )}
+                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                    <p className="text-slate-400 text-sm">Inquired</p>
+                    <p className="text-2xl font-bold text-cyan-400">{inquiredCount}</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                    <p className="text-slate-400 text-sm">Total Cost</p>
+                    <p className="text-2xl font-bold text-red-400">{formatPeso(totalCost)}</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                    <p className="text-slate-400 text-sm">Total Freight</p>
+                    <p className="text-2xl font-bold text-orange-400">{formatPeso(totalFreight)}</p>
+                  </div>
+                  {isAdmin && (
+                    <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                      <p className="text-slate-400 text-sm">Profit (Delivered)</p>
+                      <p className={`text-2xl font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {profit >= 0 ? '+' : '-'}{formatPeso(Math.abs(profit))}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Search, Filters, View Toggle, and Add */}
@@ -338,10 +428,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search products, customers..." className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search brand, description, supplier, customer..." className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setShowFilters(!showFilters)} className={`px-4 py-3 rounded-xl border transition flex items-center gap-2 ${showFilters || filters.status !== 'all' || filters.freightType !== 'all' || filters.vatType !== 'all' || filters.inquired !== 'all' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
+                    <button onClick={() => setShowFilters(!showFilters)} className={`px-4 py-3 rounded-xl border transition flex items-center gap-2 ${showFilters || filters.status !== 'all' || filters.freightType !== 'all' || filters.inquired !== 'all' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                       <span className="hidden sm:inline">Filters</span>
                     </button>
@@ -362,11 +452,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
                 {showFilters && (
                   <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
                         <select value={filters.status || 'all'} onChange={(e) => setFilters({ ...filters, status: e.target.value as ItemStatus | 'all' })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                           <option value="all">All</option>
+                          <option value="inquired">Inquired</option>
                           <option value="bought">Bought</option>
                           <option value="arrived">Arrived</option>
                           <option value="delivered">Delivered</option>
@@ -382,14 +473,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">VAT</label>
-                        <select value={filters.vatType || 'all'} onChange={(e) => setFilters({ ...filters, vatType: e.target.value as VatType | 'all' })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
-                          <option value="all">All</option>
-                          <option value="vat_inclusive">VAT</option>
-                          <option value="non_vat">Non-VAT</option>
-                        </select>
-                      </div>
-                      <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Inquired</label>
                         <select value={filters.inquired === 'all' ? 'all' : filters.inquired ? 'yes' : 'no'} onChange={(e) => setFilters({ ...filters, inquired: e.target.value === 'all' ? 'all' : e.target.value === 'yes' })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                           <option value="all">All</option>
@@ -398,20 +481,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Min (₱)</label>
-                        <input type="number" value={filters.minPrice || ''} onChange={(e) => setFilters({ ...filters, minPrice: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Min Cost (₱)</label>
+                        <input type="number" value={filters.minCost || ''} onChange={(e) => setFilters({ ...filters, minCost: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Max (₱)</label>
-                        <input type="number" value={filters.maxPrice || ''} onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value ? Number(e.target.value) : undefined })} placeholder="100000" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Max Cost (₱)</label>
+                        <input type="number" value={filters.maxCost || ''} onChange={(e) => setFilters({ ...filters, maxCost: e.target.value ? Number(e.target.value) : undefined })} placeholder="100000" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                       </div>
                       <div className="flex items-end">
-                        <button onClick={() => setFilters({ status: 'all', freightType: 'all', vatType: 'all', inquired: 'all' })} className="w-full px-4 py-3 bg-white/5 text-slate-300 font-medium rounded-xl hover:bg-white/10 transition">Clear</button>
+                        <button onClick={() => setFilters({ status: 'all', freightType: 'all', inquired: 'all' })} className="w-full px-4 py-3 bg-white/5 text-slate-300 font-medium rounded-xl hover:bg-white/10 transition">Clear</button>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
+
 
               {/* Items Display */}
               {loading ? (
@@ -431,42 +515,32 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <div key={item.id} onClick={() => setSelectedItem(item)} className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden hover:border-emerald-500/50 transition cursor-pointer group">
                       {item.image_url ? (
                         <div className="aspect-video bg-slate-800 overflow-hidden relative">
-                          <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                          {item.is_inquired && (
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-cyan-500 text-white text-xs font-medium rounded">INQUIRED</div>
-                          )}
+                          <img src={item.image_url} alt={item.brand} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                          {item.is_inquired && <div className="absolute top-2 left-2 px-2 py-1 bg-cyan-500 text-white text-xs font-medium rounded">INQUIRED</div>}
                         </div>
                       ) : (
                         <div className="aspect-video bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative">
                           <svg className="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          {item.is_inquired && (
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-cyan-500 text-white text-xs font-medium rounded">INQUIRED</div>
-                          )}
+                          {item.is_inquired && <div className="absolute top-2 left-2 px-2 py-1 bg-cyan-500 text-white text-xs font-medium rounded">INQUIRED</div>}
                         </div>
                       )}
                       <div className="p-5">
                         <div className="flex items-start justify-between mb-2">
-                          <h3 className="text-lg font-semibold text-white">{item.product_name}</h3>
-                          <div className="flex items-center gap-2">
-                            {item.status === 'delivered' && !item.payment_collected && (
-                              <span className={`px-2 py-1 text-xs rounded-full ${getDaysRemaining(item.delivered_at)! <= 0 ? 'bg-red-500/20 text-red-400' : getDaysRemaining(item.delivered_at)! <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
-                                D-{Math.max(0, getDaysRemaining(item.delivered_at) || 0)}
-                              </span>
-                            )}
-                            {item.payment_collected && (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">Paid</span>
-                            )}
-                            <span className={`px-2 py-1 text-xs rounded-full ${item.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'arrived' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                            </span>
+                          <div>
+                            <h3 className="text-lg font-semibold text-white">{item.brand}</h3>
+                            <p className="text-slate-400 text-sm">{item.description}</p>
                           </div>
-                        </div>
-                        <p className="text-slate-400 text-sm">{item.customer_name}</p>
-                        {item.contact && <p className="text-slate-500 text-xs">{item.contact}</p>}
-                        <div className="flex gap-2 mt-2 flex-wrap">
-                          <span className={`px-2 py-0.5 text-xs rounded ${item.vat_type === 'vat_inclusive' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                            {item.vat_type === 'vat_inclusive' ? 'VAT' : 'Non-VAT'}
+                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
+                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                           </span>
+                        </div>
+                        <div className="flex gap-2 text-sm text-slate-400 mb-2">
+                          <span>{item.unit}</span>
+                          <span>•</span>
+                          <span>Qty: {item.qty}</span>
+                        </div>
+                        <p className="text-slate-500 text-sm mb-2">Customer: {item.customer}</p>
+                        <div className="flex gap-2 mt-2 flex-wrap">
                           <span className="px-2 py-0.5 text-xs rounded bg-slate-500/20 text-slate-400 flex items-center gap-1">
                             <FreightIcon type={item.freight_type} className="w-3 h-3" />
                             {item.freight_type.charAt(0).toUpperCase() + item.freight_type.slice(1)}
@@ -474,52 +548,112 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </div>
                         <div className="my-4"><StatusProgressBar status={item.status} /></div>
                         <div className="flex justify-between items-center">
-                          <span className="text-emerald-400 font-medium">{formatPeso(item.sold_price)}</span>
-                          <span className="text-xs text-slate-500">{new Date(item.created_at).toLocaleDateString()}</span>
+                          <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
+                          <span className="text-xs text-slate-500">{formatDate(item.created_at)}</span>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-white/10">
-                        <th className="text-left p-4 text-slate-400 font-medium">Product</th>
-                        <th className="text-left p-4 text-slate-400 font-medium hidden md:table-cell">Customer</th>
-                        <th className="text-left p-4 text-slate-400 font-medium hidden lg:table-cell">Contact</th>
-                        <th className="text-left p-4 text-slate-400 font-medium hidden lg:table-cell">Status</th>
-                        <th className="text-center p-4 text-slate-400 font-medium hidden md:table-cell">Inquired</th>
-                        <th className="text-right p-4 text-slate-400 font-medium">Bought</th>
-                        <th className="text-right p-4 text-slate-400 font-medium">Sold</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item) => (
-                        <tr key={item.id} onClick={() => setSelectedItem(item)} className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              {item.image_url ? <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center"><svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>}
-                              <span className="text-white font-medium">{item.product_name}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-slate-300 hidden md:table-cell">{item.customer_name}</td>
-                          <td className="p-4 text-slate-400 hidden lg:table-cell">{item.contact || '-'}</td>
-                          <td className="p-4 hidden lg:table-cell">
-                            <span className={`px-2 py-1 text-xs rounded-full ${item.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'arrived' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center hidden md:table-cell">
-                            {item.is_inquired && <span className="px-2 py-1 text-xs rounded bg-cyan-500/20 text-cyan-400">Yes</span>}
-                          </td>
-                          <td className="p-4 text-right text-red-400">{formatPeso(item.bought_price)}</td>
-                          <td className="p-4 text-right text-emerald-400">{formatPeso(item.sold_price)}</td>
+                /* List View */
+                <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 bg-white/5">
+                          <th className="text-left p-3 text-slate-400 font-medium">
+                            <button onClick={toggleAllRows} className="flex items-center gap-1 hover:text-white transition">
+                              <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          </th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Date</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
+                          <th className="text-center p-3 text-slate-400 font-medium">Qty</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Description</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Cost</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Discount</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Sale</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Supplier</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Customer</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Freight</th>
+                          <th className="text-center p-3 text-slate-400 font-medium">Status</th>
+                          <th className="text-center p-3 text-slate-400 font-medium">D-Day</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {items.map((item) => {
+                          const hasInquired = item.is_inquired && item.inquired_list && item.inquired_list.length > 0;
+                          const isExpanded = expandedRows.has(item.id);
+                          const daysLeft = getDaysRemaining(item.delivered_at);
+                          return (
+                            <React.Fragment key={item.id}>
+                              <tr onClick={() => setSelectedItem(item)} className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition">
+                                <td className="p-3">
+                                  {hasInquired && (
+                                    <button onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }} className="text-slate-400 hover:text-white transition">
+                                      <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
+                                <td className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    {item.image_url && <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
+                                    <span className="text-white font-medium">{item.unit}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center text-slate-300">{item.qty}</td>
+                                <td className="p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
+                                <td className="p-3 text-right">
+                                  <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
+                                </td>
+                                <td className="p-3 text-right text-orange-400">{item.discount ? formatPeso(item.discount) : '-'}</td>
+                                <td className="p-3 text-right">
+                                  <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
+                                  {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-500/20 text-purple-400">VAT</span>}
+                                </td>
+                                <td className="p-3 text-slate-300">{item.supplier_name}</td>
+                                <td className="p-3 text-slate-300">{item.customer}</td>
+                                <td className="p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
+                                <td className="p-3 text-center">
+                                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
+                                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                  </span>
+                                  {item.payment_collected && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-green-500/20 text-green-400">Paid</span>}
+                                </td>
+                                <td className="p-3 text-center">
+                                  {item.status === 'delivered' && !item.payment_collected && daysLeft !== null ? (
+                                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${daysLeft <= 0 ? 'bg-red-500/20 text-red-400' : daysLeft <= 7 ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                                      {daysLeft <= 0 ? `${Math.abs(daysLeft)}d overdue` : `D-${daysLeft}`}
+                                    </span>
+                                  ) : item.payment_collected ? (
+                                    <span className="text-green-400 text-xs">✓</span>
+                                  ) : (
+                                    <span className="text-slate-500">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                              {/* Inquired rows */}
+                              {hasInquired && isExpanded && item.inquired_list!.map((inq, idx) => (
+                                <tr key={`${item.id}-inq-${idx}`} className="bg-cyan-500/5 border-b border-white/5">
+                                  <td className="p-2 pl-6 text-slate-500">
+                                    {idx === item.inquired_list!.length - 1 ? '└' : '├'}
+                                  </td>
+                                  <td className="p-2 text-slate-500 text-xs" colSpan={4}>
+                                    <span className="text-cyan-400">Inquired #{idx + 1}:</span> {inq.supplier_name} {inq.contact && `(${inq.contact})`}
+                                  </td>
+                                  <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
+                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? formatPeso(inq.discount) : '-'}</td>
+                                  <td colSpan={6}></td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </>
@@ -545,7 +679,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-white font-medium">{sec.email}</p>
-                          <p className="text-slate-500 text-xs mt-1">Added {new Date(sec.created_at).toLocaleDateString()}</p>
+                          <p className="text-slate-500 text-xs mt-1">Added {formatDate(sec.created_at)}</p>
                         </div>
                         <button onClick={() => handleDeleteSecretary(sec.id)} className="text-red-400 hover:text-red-300 p-2 hover:bg-red-500/10 rounded-lg transition">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -561,23 +695,30 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
         {showAddModal && <AddItemModal userId={userId} onClose={() => setShowAddModal(false)} onAdd={(item) => { setItems([item, ...items]); setShowAddModal(false); }} />}
         {showSecretaryModal && <AddSecretaryModal adminId={userId} onClose={() => setShowSecretaryModal(false)} onAdd={(sec) => { setSecretaries([sec, ...secretaries]); setShowSecretaryModal(false); }} />}
-        {selectedItem && <ItemDetailModal item={selectedItem} isAdmin={isAdmin} onClose={() => setSelectedItem(null)} onDelete={() => handleDelete(selectedItem.id)} onStatusChange={(status) => handleStatusChange(selectedItem.id, status)} onCollectPayment={() => handleCollectPayment(selectedItem.id)} />}
+        {selectedItem && <ItemDetailModal item={selectedItem} isAdmin={isAdmin} onClose={() => setSelectedItem(null)} onDelete={() => handleDelete(selectedItem.id)} onStatusChange={(status) => handleStatusChange(selectedItem.id, status)} onCollectPayment={() => handleCollectPayment(selectedItem.id)} onEdit={() => handleEdit(selectedItem)} />}
+        {showEditModal && editingItem && <EditItemModal item={editingItem} userId={userId} onClose={() => { setShowEditModal(false); setEditingItem(null); }} onUpdate={handleUpdateItem} />}
+        {showStatistics && <Statistics items={items} isAdmin={isAdmin} onClose={() => setShowStatistics(false)} />}
       </div>
     </ScreenshotProtection>
   );
 }
 
 
-function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onCollectPayment }: { item: InventoryItem; isAdmin: boolean; onClose: () => void; onDelete: () => void; onStatusChange: (status: ItemStatus) => void; onCollectPayment: () => void }) {
-  const statuses: ItemStatus[] = ['bought', 'arrived', 'delivered'];
-  const profit = item.sold_price - item.bought_price;
+function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onCollectPayment, onEdit }: { item: InventoryItem; isAdmin: boolean; onClose: () => void; onDelete: () => void; onStatusChange: (status: ItemStatus) => void; onCollectPayment: () => void; onEdit: () => void }) {
+  const statuses: ItemStatus[] = ['inquired', 'bought', 'arrived', 'delivered'];
+  const profit = (item.sale - item.cost) * item.qty - (item.discount || 0);
   const daysRemaining = getDaysRemaining(item.delivered_at);
-
-  const formatSource = (source: string | null) => {
-    if (!source) return '';
-    if (source === 'no_stock') return 'No Stock';
-    if (source === 'indent') return 'Indent';
-    return source;
+  
+  const getStatusButtonClass = (status: ItemStatus, isActive: boolean) => {
+    if (isActive) {
+      switch (status) {
+        case 'inquired': return 'bg-blue-500 text-white';
+        case 'bought': return 'bg-red-500 text-white';
+        case 'arrived': return 'bg-yellow-500 text-white';
+        case 'delivered': return 'bg-emerald-500 text-white';
+      }
+    }
+    return 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white';
   };
 
   return (
@@ -585,7 +726,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
       <div className="bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/10" onClick={(e) => e.stopPropagation()}>
         {item.image_url ? (
           <div className="aspect-video bg-slate-900 overflow-hidden relative">
-            <img src={item.image_url} alt={item.product_name} className="w-full h-full object-contain" />
+            <img src={item.image_url} alt={item.brand} className="w-full h-full object-contain" />
             {item.is_inquired && <div className="absolute top-4 left-4 px-3 py-1 bg-cyan-500 text-white text-sm font-medium rounded">INQUIRED</div>}
           </div>
         ) : (
@@ -598,8 +739,9 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
         <div className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-1">{item.product_name}</h2>
-              <p className="text-slate-400">{new Date(item.created_at).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <h2 className="text-2xl font-bold text-white mb-1">{item.brand}</h2>
+              <p className="text-slate-400">{item.description}</p>
+              <p className="text-slate-500 text-sm mt-1">{formatDate(item.created_at)}</p>
             </div>
             <button onClick={onClose} className="text-slate-400 hover:text-white transition p-2">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -611,28 +753,29 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
             <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4">
               <h3 className="text-cyan-400 font-medium mb-3 flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Inquired From ({item.inquired_list.length})
+                Inquired Suppliers ({item.inquired_list.length})
               </h3>
               <div className="space-y-3">
                 {item.inquired_list.map((inq, index) => (
                   <div key={index} className="bg-white/5 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-cyan-300 text-sm font-medium">#{index + 1} {inq.name || 'Unnamed'}</span>
-                      {inq.price && <span className="text-cyan-400 font-medium">{formatPeso(inq.price)}</span>}
+                      <span className="text-cyan-300 text-sm font-medium">#{index + 1} {inq.supplier_name}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
                       {inq.contact && (
                         <div>
                           <p className="text-slate-500">Contact</p>
                           <p className="text-white">{inq.contact}</p>
                         </div>
                       )}
-                      {inq.source && (
-                        <div>
-                          <p className="text-slate-500">Source</p>
-                          <p className="text-white">{formatSource(inq.source)}</p>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-slate-500">Cost</p>
+                        <p className="text-red-400">{formatPeso(inq.cost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Discount</p>
+                        <p className="text-orange-400">{inq.discount ? formatPeso(inq.discount) : '-'}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -641,12 +784,12 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
           )}
 
           <div className="flex gap-2 mb-4 flex-wrap">
-            <span className={`px-3 py-1 text-sm rounded-full ${item.vat_type === 'vat_inclusive' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
-              {item.vat_type === 'vat_inclusive' ? 'VAT Inclusive' : 'Non-VAT'}
-            </span>
             <span className="px-3 py-1 text-sm rounded-full bg-slate-500/20 text-slate-400 flex items-center gap-1">
               <FreightIcon type={item.freight_type} className="w-4 h-4" />
               {item.freight_type.charAt(0).toUpperCase() + item.freight_type.slice(1)} Freight
+            </span>
+            <span className="px-3 py-1 text-sm rounded-full bg-slate-500/20 text-slate-400">
+              {item.unit} × {item.qty}
             </span>
           </div>
 
@@ -655,7 +798,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
             <StatusProgressBar status={item.status} />
             <div className="flex gap-2 mt-4">
               {statuses.map((status) => (
-                <button key={status} onClick={() => onStatusChange(status)} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${item.status === status ? 'bg-emerald-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}>
+                <button key={status} onClick={() => onStatusChange(status)} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${getStatusButtonClass(status, item.status === status)}`}>
                   {status.charAt(0).toUpperCase() + status.slice(1)}
                 </button>
               ))}
@@ -664,31 +807,28 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
 
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-white/5 rounded-xl p-4">
-              <p className="text-slate-400 text-sm mb-1">Customer Name</p>
-              <p className="text-white font-medium">{item.customer_name}</p>
+              <p className="text-slate-400 text-sm mb-1">Supplier</p>
+              <p className="text-white font-medium">{item.supplier_name}</p>
+              {item.contact && <p className="text-slate-500 text-sm">{item.contact}</p>}
             </div>
             <div className="bg-white/5 rounded-xl p-4">
-              <p className="text-slate-400 text-sm mb-1">Contact</p>
-              <p className="text-white font-medium">{item.contact || '-'}</p>
-            </div>
-            <div className="bg-white/5 rounded-xl p-4">
-              <p className="text-slate-400 text-sm mb-1">Bought From</p>
-              <p className="text-white font-medium">{item.bought_from}</p>
-            </div>
-            <div className="bg-white/5 rounded-xl p-4">
-              <p className="text-slate-400 text-sm mb-1">Purchaser</p>
-              <p className="text-white font-medium">{item.purchaser}</p>
+              <p className="text-slate-400 text-sm mb-1">Customer</p>
+              <p className="text-white font-medium">{item.customer}</p>
             </div>
           </div>
 
-          <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-6`}>
+          <div className={`grid ${isAdmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'} gap-4 mb-6`}>
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-              <p className="text-red-400 text-sm mb-1">Bought Price</p>
-              <p className="text-xl font-bold text-red-400">{formatPeso(item.bought_price)}</p>
+              <p className="text-red-400 text-sm mb-1">Cost</p>
+              <p className="text-xl font-bold text-red-400">{formatPeso(item.cost)}</p>
+            </div>
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 text-center">
+              <p className="text-orange-400 text-sm mb-1">Freight</p>
+              <p className="text-xl font-bold text-orange-400">{formatPeso(item.freight_cost)}</p>
             </div>
             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
-              <p className="text-emerald-400 text-sm mb-1">Sold Price</p>
-              <p className="text-xl font-bold text-emerald-400">{formatPeso(item.sold_price)}</p>
+              <p className="text-emerald-400 text-sm mb-1">Sale</p>
+              <p className="text-xl font-bold text-emerald-400">{formatPeso(item.sale)}</p>
             </div>
             {isAdmin && (
               <div className={`${profit >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'} border rounded-xl p-4 text-center`}>
@@ -700,6 +840,10 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
 
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 py-3 px-4 bg-white/5 text-slate-300 font-medium rounded-xl hover:bg-white/10 transition">Close</button>
+            <button onClick={onEdit} className="py-3 px-6 bg-blue-500/10 text-blue-400 font-medium rounded-xl hover:bg-blue-500/20 transition flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              Edit
+            </button>
             <button onClick={onDelete} className="py-3 px-6 bg-red-500/10 text-red-400 font-medium rounded-xl hover:bg-red-500/20 transition flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               Delete
@@ -725,8 +869,11 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
 
 
 function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () => void; onAdd: (item: InventoryItem) => void }) {
-  const [formData, setFormData] = useState({ product_name: '', customer_name: '', contact: '', bought_from: '', purchaser: '', bought_price: '', sold_price: '', freight_type: 'sea' as FreightType, vat_type: 'vat_inclusive' as VatType });
-  const [inquiredList, setInquiredList] = useState<{ name: string; price: string; contact: string; source: string; customSource: string }[]>([]);
+  const [formData, setFormData] = useState({
+    unit: '', qty: '1', description: '', cost: '', vat_type: 'non_vat' as VatType, discount: '', sale: '',
+    supplier_name: '', contact: '', customer: '', freight_cost: '', freight_type: 'sea' as FreightType,
+  });
+  const [inquiredList, setInquiredList] = useState<{ supplier_name: string; contact: string; cost: string; discount: string }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -737,15 +884,28 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
     if (file) { setImageFile(file); const reader = new FileReader(); reader.onloadend = () => setImagePreview(reader.result as string); reader.readAsDataURL(file); }
   };
 
+  const formatNumberInput = (value: string) => {
+    const num = value.replace(/[^0-9.]/g, '');
+    const parts = num.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+  };
+
+  const parseNumber = (value: string) => parseFloat(value.replace(/,/g, '')) || 0;
+
   const addInquiry = () => {
-    if (inquiredList.length < 3) setInquiredList([...inquiredList, { name: '', price: '', contact: '', source: 'no_stock', customSource: '' }]);
+    if (inquiredList.length < 3) setInquiredList([...inquiredList, { supplier_name: '', contact: '', cost: '', discount: '' }]);
   };
 
   const removeInquiry = (index: number) => setInquiredList(inquiredList.filter((_, i) => i !== index));
 
   const updateInquiry = (index: number, field: string, value: string) => {
     const updated = [...inquiredList];
-    updated[index] = { ...updated[index], [field]: value };
+    if (['cost', 'discount'].includes(field)) {
+      updated[index] = { ...updated[index], [field]: formatNumberInput(value) };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
     setInquiredList(updated);
   };
 
@@ -754,17 +914,34 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
     try {
       let imageUrl: string | null = null;
       if (imageFile) imageUrl = await uploadImage(imageFile, userId);
-      const finalInquiredList = inquiredList.map(inq => ({
-        name: inq.name, price: inq.price ? Number(inq.price) : null, contact: inq.contact,
-        source: inq.source === 'custom' ? inq.customSource : inq.source,
+      
+      const finalInquiredList: InquiredSupplier[] = inquiredList.map(inq => ({
+        supplier_name: inq.supplier_name,
+        contact: inq.contact,
+        cost: parseNumber(inq.cost),
+        discount: inq.discount ? parseNumber(inq.discount) : null,
       }));
+
       const item = await addItem({
-        product_name: formData.product_name, customer_name: formData.customer_name, contact: formData.contact,
-        bought_from: formData.bought_from, purchaser: formData.purchaser,
-        bought_price: Number(formData.bought_price), sold_price: Number(formData.sold_price),
-        image_url: imageUrl, status: 'bought', freight_type: formData.freight_type, vat_type: formData.vat_type,
-        is_inquired: inquiredList.length > 0, inquired_list: inquiredList.length > 0 ? finalInquiredList : null,
-        delivered_at: null, payment_collected: false,
+        image_url: imageUrl,
+        brand: '',
+        unit: formData.unit,
+        qty: parseInt(formData.qty) || 1,
+        description: formData.description,
+        cost: parseNumber(formData.cost),
+        vat_type: formData.vat_type,
+        discount: formData.discount ? parseNumber(formData.discount) : null,
+        sale: parseNumber(formData.sale),
+        supplier_name: formData.supplier_name,
+        contact: formData.contact,
+        customer: formData.customer,
+        freight_cost: parseNumber(formData.freight_cost),
+        freight_type: formData.freight_type,
+        status: 'inquired',
+        is_inquired: inquiredList.length > 0,
+        inquired_list: inquiredList.length > 0 ? finalInquiredList : null,
+        delivered_at: null,
+        payment_collected: false,
         user_id: userId,
       });
       onAdd(item);
@@ -774,47 +951,90 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-white/10">
+      <div className="bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-white/10">
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">Add New Item</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Image Upload */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Product Name *</label>
-            <input type="text" value={formData.product_name} onChange={(e) => setFormData({ ...formData, product_name: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Product name" required />
+            <label className="block text-sm font-medium text-slate-300 mb-2">Image (Optional)</label>
+            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="image-upload" />
+            <label htmlFor="image-upload" className="flex items-center justify-center w-full px-4 py-6 bg-white/5 border-2 border-dashed border-white/20 rounded-xl text-slate-400 hover:border-emerald-500 hover:text-emerald-400 cursor-pointer transition">
+              {imagePreview ? <img src={imagePreview} alt="Preview" className="max-h-24 rounded-lg" /> : (
+                <div className="text-center">
+                  <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <span className="text-sm">Click to upload</span>
+                </div>
+              )}
+            </label>
           </div>
+
+          {/* Unit, Qty */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Customer Name *</label>
-              <input type="text" value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Customer" required />
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit *</label>
+              <input type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="pcs/box" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Qty *</label>
+              <input type="number" value={formData.qty} onChange={(e) => setFormData({ ...formData, qty: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="1" min="1" required />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
+            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Item description" required />
+          </div>
+
+          {/* Cost, VAT, Discount, Sale */}
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Cost (₱) *</label>
+              <input type="text" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">VAT</label>
+              <button type="button" onClick={() => setFormData({ ...formData, vat_type: formData.vat_type === 'vat_inclusive' ? 'non_vat' : 'vat_inclusive' })} className={`w-full px-4 py-3 rounded-xl font-medium transition ${formData.vat_type === 'vat_inclusive' ? 'bg-purple-500 text-white' : 'bg-white/5 border border-white/10 text-slate-400'}`}>
+                {formData.vat_type === 'vat_inclusive' ? 'VAT Inclusive' : 'Non-VAT'}
+              </button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (₱)</label>
+              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
+              <input type="text" value={formData.sale} onChange={(e) => setFormData({ ...formData, sale: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
+            </div>
+          </div>
+
+          {/* Supplier Name, Contact */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name *</label>
+              <input type="text" value={formData.supplier_name} onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Supplier" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Contact</label>
               <input type="text" value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Bought From *</label>
-              <input type="text" value={formData.bought_from} onChange={(e) => setFormData({ ...formData, bought_from: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Source" required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Purchaser *</label>
-              <input type="text" value={formData.purchaser} onChange={(e) => setFormData({ ...formData, purchaser: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Purchaser" required />
-            </div>
+
+          {/* Customer */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Customer *</label>
+            <input type="text" value={formData.customer} onChange={(e) => setFormData({ ...formData, customer: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Customer name" required />
           </div>
+
+          {/* Freight Cost, Freight Type */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Bought Price (₱) *</label>
-              <input type="number" value={formData.bought_price} onChange={(e) => setFormData({ ...formData, bought_price: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" min="0" step="0.01" required />
+              <label className="block text-sm font-medium text-slate-300 mb-2">Freight Cost (₱) *</label>
+              <input type="text" value={formData.freight_cost} onChange={(e) => setFormData({ ...formData, freight_cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Sold Price (₱) *</label>
-              <input type="number" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" min="0" step="0.01" required />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Freight Type</label>
               <select value={formData.freight_type} onChange={(e) => setFormData({ ...formData, freight_type: e.target.value as FreightType })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
@@ -823,32 +1043,12 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
                 <option value="air">Air Freight</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">VAT</label>
-              <select value={formData.vat_type} onChange={(e) => setFormData({ ...formData, vat_type: e.target.value as VatType })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
-                <option value="vat_inclusive">VAT Inclusive</option>
-                <option value="non_vat">Non-VAT</option>
-              </select>
-            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Image</label>
-            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="image-upload" />
-            <label htmlFor="image-upload" className="flex items-center justify-center w-full px-4 py-8 bg-white/5 border-2 border-dashed border-white/20 rounded-xl text-slate-400 hover:border-emerald-500 hover:text-emerald-400 cursor-pointer transition">
-              {imagePreview ? <img src={imagePreview} alt="Preview" className="max-h-32 rounded-lg" /> : (
-                <div className="text-center">
-                  <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  <span>Click to upload image</span>
-                </div>
-              )}
-            </label>
-          </div>
-
-          {/* Inquired Section - Up to 3 */}
+          {/* Inquired Section */}
           <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-cyan-400 font-medium">Inquired From ({inquiredList.length}/3)</span>
+              <span className="text-cyan-400 font-medium">Inquired Suppliers ({inquiredList.length}/3)</span>
               {inquiredList.length < 3 && (
                 <button type="button" onClick={addInquiry} className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -856,7 +1056,7 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
                 </button>
               )}
             </div>
-            {inquiredList.length === 0 && <p className="text-slate-500 text-sm text-center py-2">No inquiries added. Click &quot;Add&quot; to add up to 3.</p>}
+            {inquiredList.length === 0 && <p className="text-slate-500 text-sm text-center py-2">No inquired suppliers. Click &quot;Add&quot; to add up to 3.</p>}
             <div className="space-y-3">
               {inquiredList.map((inq, index) => (
                 <div key={index} className="bg-white/5 rounded-lg p-3 border border-cyan-500/10">
@@ -867,19 +1067,14 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
                     </button>
                   </div>
                   <div className="space-y-2">
-                    <input type="text" value={inq.name} onChange={(e) => updateInquiry(index, 'name', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Supplier/Store name" />
                     <div className="grid grid-cols-2 gap-2">
-                      <input type="number" value={inq.price} onChange={(e) => updateInquiry(index, 'price', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Price (₱)" min="0" step="0.01" />
+                      <input type="text" value={inq.supplier_name} onChange={(e) => updateInquiry(index, 'supplier_name', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Supplier Name *" />
                       <input type="text" value={inq.contact} onChange={(e) => updateInquiry(index, 'contact', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Contact" />
                     </div>
-                    <select value={inq.source} onChange={(e) => updateInquiry(index, 'source', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm">
-                      <option value="no_stock">No Stock</option>
-                      <option value="indent">Indent</option>
-                      <option value="custom">Custom...</option>
-                    </select>
-                    {inq.source === 'custom' && (
-                      <input type="text" value={inq.customSource} onChange={(e) => updateInquiry(index, 'customSource', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Custom source type" />
-                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={inq.cost} onChange={(e) => updateInquiry(index, 'cost', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Cost *" />
+                      <input type="text" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -890,6 +1085,237 @@ function AddItemModal({ userId, onClose, onAdd }: { userId: string; onClose: () 
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={onClose} className="flex-1 py-3 px-4 bg-white/5 text-slate-300 font-medium rounded-xl hover:bg-white/10 transition">Cancel</button>
             <button type="submit" disabled={loading} className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50">{loading ? 'Adding...' : 'Add Item'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+function EditItemModal({ item, userId, onClose, onUpdate }: { item: InventoryItem; userId: string; onClose: () => void; onUpdate: (item: InventoryItem) => void }) {
+  const formatNum = (n: number | null | undefined) => (n || 0).toLocaleString('en-PH');
+  const [formData, setFormData] = useState({
+    unit: item.unit, qty: item.qty.toString(), description: item.description,
+    cost: formatNum(item.cost), vat_type: item.vat_type || 'non_vat' as VatType, discount: item.discount ? formatNum(item.discount) : '', sale: formatNum(item.sale),
+    supplier_name: item.supplier_name, contact: item.contact || '', customer: item.customer,
+    freight_cost: formatNum(item.freight_cost), freight_type: item.freight_type,
+  });
+  const [inquiredList, setInquiredList] = useState<{ supplier_name: string; contact: string; cost: string; discount: string }[]>(
+    item.inquired_list?.map(inq => ({
+      supplier_name: inq.supplier_name,
+      contact: inq.contact || '',
+      cost: formatNum(inq.cost),
+      discount: inq.discount ? formatNum(inq.discount) : '',
+    })) || []
+  );
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>(item.image_url || '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) { setImageFile(file); const reader = new FileReader(); reader.onloadend = () => setImagePreview(reader.result as string); reader.readAsDataURL(file); }
+  };
+
+  const formatNumberInput = (value: string) => {
+    const num = value.replace(/[^0-9.]/g, '');
+    const parts = num.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+  };
+
+  const parseNumber = (value: string) => parseFloat(value.replace(/,/g, '')) || 0;
+
+  const addInquiry = () => {
+    if (inquiredList.length < 3) setInquiredList([...inquiredList, { supplier_name: '', contact: '', cost: '', discount: '' }]);
+  };
+
+  const removeInquiry = (index: number) => setInquiredList(inquiredList.filter((_, i) => i !== index));
+
+  const updateInquiry = (index: number, field: string, value: string) => {
+    const updated = [...inquiredList];
+    if (['cost', 'discount'].includes(field)) {
+      updated[index] = { ...updated[index], [field]: formatNumberInput(value) };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setInquiredList(updated);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(''); setLoading(true);
+    try {
+      let imageUrl = item.image_url;
+      if (imageFile) imageUrl = await uploadImage(imageFile, userId);
+      
+      const finalInquiredList: InquiredSupplier[] = inquiredList.map(inq => ({
+        supplier_name: inq.supplier_name,
+        contact: inq.contact,
+        cost: parseNumber(inq.cost),
+        discount: inq.discount ? parseNumber(inq.discount) : null,
+      }));
+
+      const updated = await updateItem(item.id, {
+        image_url: imageUrl,
+        brand: '',
+        unit: formData.unit,
+        qty: parseInt(formData.qty) || 1,
+        description: formData.description,
+        cost: parseNumber(formData.cost),
+        vat_type: formData.vat_type,
+        discount: formData.discount ? parseNumber(formData.discount) : null,
+        sale: parseNumber(formData.sale),
+        supplier_name: formData.supplier_name,
+        contact: formData.contact,
+        customer: formData.customer,
+        freight_cost: parseNumber(formData.freight_cost),
+        freight_type: formData.freight_type,
+        is_inquired: inquiredList.length > 0,
+        inquired_list: inquiredList.length > 0 ? finalInquiredList : null,
+      });
+      onUpdate(updated);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to update item'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Edit Item</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Image</label>
+            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="edit-image-upload" />
+            <label htmlFor="edit-image-upload" className="flex items-center justify-center w-full px-4 py-6 bg-white/5 border-2 border-dashed border-white/20 rounded-xl text-slate-400 hover:border-emerald-500 hover:text-emerald-400 cursor-pointer transition">
+              {imagePreview ? <img src={imagePreview} alt="Preview" className="max-h-24 rounded-lg" /> : (
+                <div className="text-center">
+                  <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <span className="text-sm">Click to upload</span>
+                </div>
+              )}
+            </label>
+          </div>
+
+          {/* Unit, Qty */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit *</label>
+              <input type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Qty *</label>
+              <input type="number" value={formData.qty} onChange={(e) => setFormData({ ...formData, qty: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" min="1" required />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
+            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+          </div>
+
+          {/* Cost, VAT, Discount, Sale */}
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Cost (₱) *</label>
+              <input type="text" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">VAT</label>
+              <button type="button" onClick={() => setFormData({ ...formData, vat_type: formData.vat_type === 'vat_inclusive' ? 'non_vat' : 'vat_inclusive' })} className={`w-full px-4 py-3 rounded-xl font-medium transition ${formData.vat_type === 'vat_inclusive' ? 'bg-purple-500 text-white' : 'bg-white/5 border border-white/10 text-slate-400'}`}>
+                {formData.vat_type === 'vat_inclusive' ? 'VAT Inclusive' : 'Non-VAT'}
+              </button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (₱)</label>
+              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
+              <input type="text" value={formData.sale} onChange={(e) => setFormData({ ...formData, sale: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+          </div>
+
+          {/* Supplier Name, Contact */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name *</label>
+              <input type="text" value={formData.supplier_name} onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Contact</label>
+              <input type="text" value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+            </div>
+          </div>
+
+          {/* Customer */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Customer *</label>
+            <input type="text" value={formData.customer} onChange={(e) => setFormData({ ...formData, customer: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+          </div>
+
+          {/* Freight Cost, Freight Type */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Freight Cost (₱) *</label>
+              <input type="text" value={formData.freight_cost} onChange={(e) => setFormData({ ...formData, freight_cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Freight Type</label>
+              <select value={formData.freight_type} onChange={(e) => setFormData({ ...formData, freight_type: e.target.value as FreightType })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                <option value="sea">Sea Freight</option>
+                <option value="land">Land Freight</option>
+                <option value="air">Air Freight</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Inquired Section */}
+          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-cyan-400 font-medium">Inquired Suppliers ({inquiredList.length}/3)</span>
+              {inquiredList.length < 3 && (
+                <button type="button" onClick={addInquiry} className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Add
+                </button>
+              )}
+            </div>
+            {inquiredList.length === 0 && <p className="text-slate-500 text-sm text-center py-2">No inquired suppliers.</p>}
+            <div className="space-y-3">
+              {inquiredList.map((inq, index) => (
+                <div key={index} className="bg-white/5 rounded-lg p-3 border border-cyan-500/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-cyan-300 text-sm font-medium">#{index + 1}</span>
+                    <button type="button" onClick={() => removeInquiry(index)} className="text-red-400 hover:text-red-300 p-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={inq.supplier_name} onChange={(e) => updateInquiry(index, 'supplier_name', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Supplier Name *" />
+                      <input type="text" value={inq.contact} onChange={(e) => updateInquiry(index, 'contact', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Contact" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={inq.cost} onChange={(e) => updateInquiry(index, 'cost', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Cost *" />
+                      <input type="text" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {error && <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-3 text-red-400 text-sm text-center">{error}</div>}
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 py-3 px-4 bg-white/5 text-slate-300 font-medium rounded-xl hover:bg-white/10 transition">Cancel</button>
+            <button type="submit" disabled={loading} className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50">{loading ? 'Saving...' : 'Save Changes'}</button>
           </div>
         </form>
       </div>
@@ -910,11 +1336,7 @@ function AddSecretaryModal({ adminId, onClose, onAdd }: { adminId: string; onClo
       const result = await inviteSecretary(email, password, adminId);
       if (!result.success) throw new Error(result.error);
       setSuccess(true);
-      setTimeout(() => { 
-        if (result.profile) {
-          onAdd(result.profile);
-        }
-      }, 1500);
+      setTimeout(() => { if (result.profile) onAdd(result.profile); }, 1500);
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to create secretary'); }
     finally { setLoading(false); }
   };

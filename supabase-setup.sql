@@ -1,113 +1,90 @@
--- Run this SQL in your Supabase SQL Editor to set up the database
+-- Uniwork Inventory Management System - Database Setup
+-- Run this in your Supabase SQL Editor
+
+-- Drop existing tables if they exist (for fresh setup)
+DROP TABLE IF EXISTS items CASCADE;
+DROP TABLE IF EXISTS user_profiles CASCADE;
 
 -- Create user_profiles table for role management
-CREATE TABLE IF NOT EXISTS user_profiles (
+CREATE TABLE user_profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
-  role TEXT DEFAULT 'secretary' CHECK (role IN ('admin', 'secretary')),
+  role TEXT NOT NULL DEFAULT 'secretary' CHECK (role IN ('admin', 'secretary')),
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create items table
-CREATE TABLE IF NOT EXISTS items (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  product_name TEXT NOT NULL,
-  customer_name TEXT NOT NULL,
-  contact TEXT DEFAULT '',
-  bought_from TEXT NOT NULL,
-  purchaser TEXT NOT NULL,
-  bought_price DECIMAL(10,2) NOT NULL,
-  sold_price DECIMAL(10,2) NOT NULL,
+-- Create items table with new structure
+CREATE TABLE items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   image_url TEXT,
-  status TEXT DEFAULT 'bought' CHECK (status IN ('bought', 'arrived', 'delivered')),
-  freight_type TEXT DEFAULT 'sea' CHECK (freight_type IN ('sea', 'land', 'air')),
-  vat_type TEXT DEFAULT 'vat_inclusive' CHECK (vat_type IN ('vat_inclusive', 'non_vat')),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  brand TEXT NOT NULL DEFAULT '',
+  unit TEXT NOT NULL,
+  qty INTEGER NOT NULL DEFAULT 1,
+  description TEXT NOT NULL,
+  cost DECIMAL(12,2) NOT NULL,
+  vat_type TEXT NOT NULL DEFAULT 'non_vat' CHECK (vat_type IN ('vat_inclusive', 'non_vat')),
+  discount DECIMAL(12,2),
+  sale DECIMAL(12,2) NOT NULL,
+  supplier_name TEXT NOT NULL,
+  contact TEXT,
+  customer TEXT NOT NULL,
+  freight_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
+  freight_type TEXT NOT NULL DEFAULT 'sea' CHECK (freight_type IN ('sea', 'land', 'air')),
+  status TEXT NOT NULL DEFAULT 'inquired' CHECK (status IN ('inquired', 'bought', 'arrived', 'delivered')),
+  is_inquired BOOLEAN DEFAULT FALSE,
+  inquired_list JSONB,
+  delivered_at TIMESTAMP WITH TIME ZONE,
+  payment_collected BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
--- Create inquiries table
-CREATE TABLE IF NOT EXISTS inquiries (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  product_name TEXT NOT NULL,
-  customer_name TEXT NOT NULL,
-  contact TEXT DEFAULT '',
-  notes TEXT DEFAULT '',
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Add new columns if tables already exist
-ALTER TABLE items ADD COLUMN IF NOT EXISTS contact TEXT DEFAULT '';
-ALTER TABLE items ADD COLUMN IF NOT EXISTS freight_type TEXT DEFAULT 'sea';
-ALTER TABLE items ADD COLUMN IF NOT EXISTS vat_type TEXT DEFAULT 'vat_inclusive';
-ALTER TABLE items ADD COLUMN IF NOT EXISTS is_inquired BOOLEAN DEFAULT false;
-ALTER TABLE items ADD COLUMN IF NOT EXISTS inquired_list JSONB DEFAULT '[]';
-ALTER TABLE items ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
-ALTER TABLE items ADD COLUMN IF NOT EXISTS payment_collected BOOLEAN DEFAULT false;
-
--- Rename sold_to to purchaser if it exists
-DO $$ 
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'items' AND column_name = 'sold_to') THEN
-    ALTER TABLE items RENAME COLUMN sold_to TO purchaser;
-  END IF;
-END $$;
+-- If you already have the items table and need to add vat_type column, run this instead:
+-- ALTER TABLE items ADD COLUMN IF NOT EXISTS vat_type TEXT NOT NULL DEFAULT 'non_vat' CHECK (vat_type IN ('vat_inclusive', 'non_vat'));
 
 -- Enable Row Level Security
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
-
--- Drop existing policies
-DROP POLICY IF EXISTS "Users can view own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Users can insert own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can view secretaries" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can delete secretaries" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can insert secretary profiles" ON user_profiles;
-
-DROP POLICY IF EXISTS "Users can view all items" ON items;
-DROP POLICY IF EXISTS "Users can insert items" ON items;
-DROP POLICY IF EXISTS "Users can delete own items" ON items;
-DROP POLICY IF EXISTS "Users can update items" ON items;
-
-DROP POLICY IF EXISTS "Users can view all inquiries" ON inquiries;
-DROP POLICY IF EXISTS "Users can insert inquiries" ON inquiries;
-DROP POLICY IF EXISTS "Users can delete inquiries" ON inquiries;
 
 -- User profiles policies
--- Users can view their own profile OR profiles they created (for admins viewing secretaries)
-CREATE POLICY "Users can view own profile" ON user_profiles FOR SELECT TO authenticated USING (auth.uid() = id OR created_by = auth.uid());
-CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
-CREATE POLICY "Admins can delete secretaries" ON user_profiles FOR DELETE TO authenticated USING (created_by = auth.uid());
--- Allow admins to insert profiles for secretaries they create
-CREATE POLICY "Admins can insert secretary profiles" ON user_profiles FOR INSERT TO authenticated WITH CHECK (created_by = auth.uid());
+CREATE POLICY "Users can view all profiles" ON user_profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid() = id OR auth.uid() = created_by);
+CREATE POLICY "Admins can delete secretaries" ON user_profiles FOR DELETE USING (auth.uid() = created_by);
 
--- Items policies
-CREATE POLICY "Users can view all items" ON items FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can insert items" ON items FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Users can update items" ON items FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Users can delete items" ON items FOR DELETE TO authenticated USING (true);
+-- Items policies - all authenticated users can CRUD
+CREATE POLICY "Authenticated users can view items" ON items FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can insert items" ON items FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can update items" ON items FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can delete items" ON items FOR DELETE USING (auth.role() = 'authenticated');
 
--- Inquiries policies
-CREATE POLICY "Users can view all inquiries" ON inquiries FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can insert inquiries" ON inquiries FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Users can delete inquiries" ON inquiries FOR DELETE TO authenticated USING (true);
+-- Create indexes for better performance
+CREATE INDEX idx_items_status ON items(status);
+CREATE INDEX idx_items_brand ON items(brand);
+CREATE INDEX idx_items_customer ON items(customer);
+CREATE INDEX idx_items_supplier ON items(supplier_name);
+CREATE INDEX idx_items_created_at ON items(created_at DESC);
+CREATE INDEX idx_items_is_inquired ON items(is_inquired);
 
--- Create storage bucket for images
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('item-images', 'item-images', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+-- Storage bucket for item images (run in Supabase Dashboard > Storage)
+-- 1. Create a new bucket called "item-images"
+-- 2. Make it public
+-- 3. Add policy: Allow authenticated users to upload
 
--- Storage policies
-DROP POLICY IF EXISTS "Users can upload images" ON storage.objects;
-DROP POLICY IF EXISTS "Public can view images" ON storage.objects;
-
-CREATE POLICY "Users can upload images" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'item-images');
-CREATE POLICY "Public can view images" ON storage.objects FOR SELECT TO public USING (bucket_id = 'item-images');
-
--- Enable realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE items;
-ALTER PUBLICATION supabase_realtime ADD TABLE inquiries;
-ALTER PUBLICATION supabase_realtime ADD TABLE user_profiles;
+-- Sample inquired_list JSON structure:
+-- [
+--   {
+--     "supplier_name": "Supplier A",
+--     "contact": "09123456789",
+--     "cost": 1000.00,
+--     "discount": 50.00,
+--     "sale": 1200.00
+--   },
+--   {
+--     "supplier_name": "Supplier B", 
+--     "contact": "09987654321",
+--     "cost": 1100.00,
+--     "discount": null,
+--     "sale": 1300.00
+--   }
+-- ]

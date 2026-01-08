@@ -46,7 +46,16 @@ self.__SERVER_FILES_MANIFEST={
           "search": ""
         }
       ],
-      "remotePatterns": [],
+      "remotePatterns": [
+        {
+          "protocol": "https",
+          "hostname": "*.supabase.co"
+        },
+        {
+          "protocol": "https",
+          "hostname": "*.supabase.in"
+        }
+      ],
       "qualities": [
         75
       ],

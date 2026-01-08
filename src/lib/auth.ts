@@ -38,5 +38,27 @@ export async function getUser() {
 
 export async function getUserRole(userId: string): Promise<UserRole> {
   const profile = await getUserProfile(userId);
-  return profile?.role || 'secretary';
+  
+  // If no profile exists, this user should be admin (first user scenario)
+  if (!profile) {
+    const user = await getUser();
+    if (user) {
+      try {
+        await createUserProfile({
+          id: user.id,
+          email: user.email || '',
+          role: 'admin',
+          created_by: null,
+        });
+        return 'admin';
+      } catch {
+        // Profile might already exist, try fetching again
+        const retryProfile = await getUserProfile(userId);
+        return retryProfile?.role || 'admin';
+      }
+    }
+    return 'admin'; // Default to admin if no profile
+  }
+  
+  return profile.role;
 }

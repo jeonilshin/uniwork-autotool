@@ -46,7 +46,16 @@
           "search": ""
         }
       ],
-      "remotePatterns": [],
+      "remotePatterns": [
+        {
+          "protocol": "https",
+          "hostname": "*.supabase.co"
+        },
+        {
+          "protocol": "https",
+          "hostname": "*.supabase.in"
+        }
+      ],
       "qualities": [
         75
       ],
