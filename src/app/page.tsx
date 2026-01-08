@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSession } from '@/lib/auth';
+import { getSession, signOut } from '@/lib/auth';
 import LoginForm from '@/components/LoginForm';
 import Dashboard from '@/components/Dashboard';
 
@@ -16,7 +16,25 @@ export default function Home() {
   const checkAuth = async () => {
     try {
       const session = await getSession();
-      setIsAuthenticated(!!session);
+      
+      if (session) {
+        // Check if remember me has expired
+        const rememberMe = localStorage.getItem('rememberMe');
+        const expiry = localStorage.getItem('rememberMeExpiry');
+        
+        if (rememberMe && expiry) {
+          if (Date.now() > parseInt(expiry)) {
+            // Remember me expired, sign out
+            await signOut();
+            setIsAuthenticated(false);
+            setLoading(false);
+            return;
+          }
+        }
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
     } catch {
       setIsAuthenticated(false);
     } finally {

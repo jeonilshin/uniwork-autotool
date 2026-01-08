@@ -10,6 +10,7 @@ interface LoginFormProps {
 export default function LoginForm({ onLogin }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +20,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(email, password, rememberMe);
       onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -65,6 +66,19 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                 placeholder="Enter password"
                 required
               />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer"
+              />
+              <label htmlFor="rememberMe" className="ml-2 text-sm text-slate-400 cursor-pointer">
+                Remember me for 30 days
+              </label>
             </div>
 
             {error && (

@@ -1,8 +1,17 @@
 import { supabase, getUserProfile, createUserProfile, UserRole } from './supabase';
 
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, rememberMe: boolean = false) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+  
+  // Store remember me preference
+  if (rememberMe) {
+    localStorage.setItem('rememberMe', 'true');
+    localStorage.setItem('rememberMeExpiry', String(Date.now() + 30 * 24 * 60 * 60 * 1000)); // 30 days
+  } else {
+    localStorage.removeItem('rememberMe');
+    localStorage.removeItem('rememberMeExpiry');
+  }
   
   // Check if user has a profile, if not create one as admin (first user)
   if (data.user) {
@@ -22,6 +31,8 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
+  localStorage.removeItem('rememberMe');
+  localStorage.removeItem('rememberMeExpiry');
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
