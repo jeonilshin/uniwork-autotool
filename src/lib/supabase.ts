@@ -22,7 +22,7 @@ export interface InquiredSupplier {
   supplier_name: string;
   contact: string;
   cost: number;
-  discount: number | null;
+  discount: string | null;
 }
 
 export interface InventoryItem {
@@ -34,11 +34,12 @@ export interface InventoryItem {
   description: string;
   cost: number;
   vat_type: VatType;
-  discount: number | null;
+  discount: string | null;
   sale: number;
   supplier_name: string;
   contact: string;
   customer: string;
+  customer_contact: string | null;
   freight_cost: number;
   freight_type: FreightType;
   status: ItemStatus;

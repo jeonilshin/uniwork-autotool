@@ -336,8 +336,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Time-based filtering helpers - simplified for dashboard
   const totalCost = items.reduce((sum, item) => sum + item.cost * item.qty, 0);
   const totalFreight = items.reduce((sum, item) => sum + item.freight_cost, 0);
-  const deliveredItems = items.filter(item => item.status === 'delivered');
-  const profit = deliveredItems.reduce((sum, item) => sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * (item.discount || 0) / 100)), 0);
+  const paidItems = items.filter(item => item.status === 'delivered' && item.payment_collected);
+  const profit = paidItems.reduce((sum, item) => {
+    const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
+    return sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * discountVal / 100));
+  }, 0);
   const inquiredCount = items.filter(item => item.is_inquired).length;
 
   const [showStatistics, setShowStatistics] = useState(false);
@@ -412,7 +415,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   </div>
                   {isAdmin && (
                     <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                      <p className="text-slate-400 text-sm">Profit (Delivered)</p>
+                      <p className="text-slate-400 text-sm">Profit (Paid)</p>
                       <p className={`text-2xl font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {profit >= 0 ? '+' : '-'}{formatPeso(Math.abs(profit))}
                       </p>
@@ -608,7 +611,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                 <td className="p-3 text-right">
                                   <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
                                 </td>
-                                <td className="p-3 text-right text-orange-400">{item.discount ? `${item.discount}%` : '-'}</td>
+                                <td className="p-3 text-right text-orange-400">{item.discount ? String(item.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
                                   {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-500/20 text-purple-400">VAT</span>}
@@ -645,7 +648,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   <td></td>
                                   <td className="p-2 text-slate-500 text-xs"><span className="text-cyan-400">Inquired #{idx + 1}</span></td>
                                   <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
-                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
+                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? String(inq.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}</td>
                                   <td></td>
                                   <td className="p-2 text-cyan-400 text-xs">{inq.supplier_name}</td>
                                   <td colSpan={4}></td>
@@ -709,7 +712,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
 function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onCollectPayment, onEdit }: { item: InventoryItem; isAdmin: boolean; onClose: () => void; onDelete: () => void; onStatusChange: (status: ItemStatus) => void; onCollectPayment: () => void; onEdit: () => void }) {
   const statuses: ItemStatus[] = ['inquired', 'bought', 'arrived', 'delivered'];
-  const profit = (item.sale - item.cost) * item.qty - (item.sale * item.qty * (item.discount || 0) / 100);
+  const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
+  const profit = (item.sale - item.cost) * item.qty - (item.sale * item.qty * discountVal / 100);
   const daysRemaining = getDaysRemaining(item.delivered_at);
   
   const getStatusButtonClass = (status: ItemStatus, isActive: boolean) => {
@@ -777,7 +781,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
                       </div>
                       <div>
                         <p className="text-slate-500">Discount</p>
-                        <p className="text-orange-400">{inq.discount ? `${inq.discount}%` : '-'}</p>
+                        <p className="text-orange-400">{inq.discount ? String(inq.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}</p>
                       </div>
                     </div>
                   </div>
@@ -874,7 +878,7 @@ function ItemDetailModal({ item, isAdmin, onClose, onDelete, onStatusChange, onC
 function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items: InventoryItem[]; onClose: () => void; onAdd: (item: InventoryItem) => void }) {
   const [formData, setFormData] = useState({
     unit: '', qty: '1', description: '', cost: '', vat_type: 'non_vat' as VatType, discount: '', sale: '',
-    supplier_name: '', contact: '', customer: '', freight_cost: '', freight_type: 'sea' as FreightType,
+    supplier_name: '', contact: '', customer: '', customer_contact: '', freight_cost: '', freight_type: 'sea' as FreightType,
   });
   const [inquiredList, setInquiredList] = useState<{ supplier_name: string; contact: string; cost: string; discount: string }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -948,7 +952,7 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
         supplier_name: inq.supplier_name,
         contact: inq.contact,
         cost: parseNumber(inq.cost),
-        discount: inq.discount ? parseNumber(inq.discount) : null,
+        discount: inq.discount || null,
       }));
 
       const item = await addItem({
@@ -959,11 +963,12 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
         description: formData.description,
         cost: parseNumber(formData.cost),
         vat_type: formData.vat_type,
-        discount: formData.discount ? parseNumber(formData.discount) : null,
+        discount: formData.discount || null,
         sale: parseNumber(formData.sale),
         supplier_name: formData.supplier_name,
         contact: formData.contact,
         customer: formData.customer,
+        customer_contact: formData.customer_contact || null,
         freight_cost: parseNumber(formData.freight_cost),
         freight_type: formData.freight_type,
         status: 'inquired',
@@ -1055,7 +1060,7 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
-              <input type="number" min="0" max="100" step="0.1" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0-100" />
+              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="e.g. 10 or 40/50" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
@@ -1127,6 +1132,12 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
             )}
           </div>
 
+          {/* Customer Contact */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Customer Contact</label>
+            <input type="text" value={formData.customer_contact} onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
+          </div>
+
           {/* Freight Cost, Freight Type */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1171,7 +1182,7 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" value={inq.cost} onChange={(e) => updateInquiry(index, 'cost', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Cost *" />
-                      <input type="number" min="0" max="100" step="0.1" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount %" />
+                      <input type="text" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount %" />
                     </div>
                   </div>
                 </div>
@@ -1195,8 +1206,8 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
   const formatNum = (n: number | null | undefined) => (n || 0).toLocaleString('en-PH');
   const [formData, setFormData] = useState({
     unit: item.unit, qty: item.qty.toString(), description: item.description,
-    cost: formatNum(item.cost), vat_type: item.vat_type || 'non_vat' as VatType, discount: item.discount ? formatNum(item.discount) : '', sale: formatNum(item.sale),
-    supplier_name: item.supplier_name, contact: item.contact || '', customer: item.customer,
+    cost: formatNum(item.cost), vat_type: item.vat_type || 'non_vat' as VatType, discount: item.discount || '', sale: formatNum(item.sale),
+    supplier_name: item.supplier_name, contact: item.contact || '', customer: item.customer, customer_contact: item.customer_contact || '',
     freight_cost: formatNum(item.freight_cost), freight_type: item.freight_type,
   });
   const [inquiredList, setInquiredList] = useState<{ supplier_name: string; contact: string; cost: string; discount: string }[]>(
@@ -1204,7 +1215,7 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
       supplier_name: inq.supplier_name,
       contact: inq.contact || '',
       cost: formatNum(inq.cost),
-      discount: inq.discount ? formatNum(inq.discount) : '',
+      discount: inq.discount || '',
     })) || []
   );
   const [activeField, setActiveField] = useState<'description' | 'supplier' | 'customer' | null>(null);
@@ -1279,7 +1290,7 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
         supplier_name: inq.supplier_name,
         contact: inq.contact,
         cost: parseNumber(inq.cost),
-        discount: inq.discount ? parseNumber(inq.discount) : null,
+        discount: inq.discount || null,
       }));
 
       const updated = await updateItem(item.id, {
@@ -1290,11 +1301,12 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
         description: formData.description,
         cost: parseNumber(formData.cost),
         vat_type: formData.vat_type,
-        discount: formData.discount ? parseNumber(formData.discount) : null,
+        discount: formData.discount || null,
         sale: parseNumber(formData.sale),
         supplier_name: formData.supplier_name,
         contact: formData.contact,
         customer: formData.customer,
+        customer_contact: formData.customer_contact || null,
         freight_cost: parseNumber(formData.freight_cost),
         freight_type: formData.freight_type,
         is_inquired: inquiredList.length > 0,
@@ -1381,7 +1393,7 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
-              <input type="number" min="0" max="100" step="0.1" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0-100" />
+              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="e.g. 10 or 40/50" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
@@ -1451,6 +1463,12 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
             )}
           </div>
 
+          {/* Customer Contact */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Customer Contact</label>
+            <input type="text" value={formData.customer_contact} onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
+          </div>
+
           {/* Freight Cost, Freight Type */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1495,7 +1513,7 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" value={inq.cost} onChange={(e) => updateInquiry(index, 'cost', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Cost *" />
-                      <input type="number" min="0" max="100" step="0.1" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount %" />
+                      <input type="text" value={inq.discount} onChange={(e) => updateInquiry(index, 'discount', e.target.value)} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition text-sm" placeholder="Discount %" />
                     </div>
                   </div>
                 </div>

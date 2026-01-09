@@ -24,11 +24,12 @@ CREATE TABLE items (
   description TEXT NOT NULL,
   cost DECIMAL(12,2) NOT NULL,
   vat_type TEXT NOT NULL DEFAULT 'non_vat' CHECK (vat_type IN ('vat_inclusive', 'non_vat')),
-  discount DECIMAL(12,2),
+  discount TEXT,
   sale DECIMAL(12,2) NOT NULL,
   supplier_name TEXT NOT NULL,
   contact TEXT,
   customer TEXT NOT NULL,
+  customer_contact TEXT,
   freight_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
   freight_type TEXT NOT NULL DEFAULT 'sea' CHECK (freight_type IN ('sea', 'land', 'air')),
   status TEXT NOT NULL DEFAULT 'inquired' CHECK (status IN ('inquired', 'bought', 'arrived', 'delivered')),
@@ -40,8 +41,8 @@ CREATE TABLE items (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
--- If you already have the items table and need to add vat_type column, run this instead:
--- ALTER TABLE items ADD COLUMN IF NOT EXISTS vat_type TEXT NOT NULL DEFAULT 'non_vat' CHECK (vat_type IN ('vat_inclusive', 'non_vat'));
+-- If you already have the items table and need to add customer_contact column, run this:
+-- ALTER TABLE items ADD COLUMN IF NOT EXISTS customer_contact TEXT;
 
 -- Enable Row Level Security
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;

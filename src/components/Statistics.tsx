@@ -45,7 +45,10 @@ export default function Statistics({ items, isAdmin, onClose }: StatisticsProps)
     const totalSale = filteredItems.reduce((sum, item) => sum + item.sale * item.qty, 0);
     const totalFreight = filteredItems.reduce((sum, item) => sum + item.freight_cost, 0);
     const delivered = filteredItems.filter(i => i.status === 'delivered');
-    const profit = delivered.reduce((sum, item) => sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * (item.discount || 0) / 100)), 0);
+    const profit = delivered.reduce((sum, item) => {
+      const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
+      return sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * discountVal / 100));
+    }, 0);
     const avgOrderValue = filteredItems.length > 0 ? totalSale / filteredItems.length : 0;
     const pendingPayments = filteredItems.filter(i => i.status === 'delivered' && !i.payment_collected).length;
     return { totalCost, totalSale, totalFreight, profit, avgOrderValue, pendingPayments, totalItems: filteredItems.length };
@@ -86,7 +89,10 @@ export default function Statistics({ items, isAdmin, onClose }: StatisticsProps)
         data[key].sale += item.sale * item.qty;
         data[key].freight += item.freight_cost;
         data[key].count += 1;
-        if (item.status === 'delivered') data[key].profit += (item.sale - item.cost) * item.qty - (item.sale * item.qty * (item.discount || 0) / 100);
+        if (item.status === 'delivered') {
+          const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
+          data[key].profit += (item.sale - item.cost) * item.qty - (item.sale * item.qty * discountVal / 100);
+        }
       }
     });
     return Object.values(data);
