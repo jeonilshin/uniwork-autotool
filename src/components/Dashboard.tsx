@@ -568,8 +568,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             </button>
                           </th>
                           <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">Date</th>
-                          <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Qty</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Description</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Cost</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Discount</th>
@@ -597,13 +597,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   )}
                                 </td>
                                 <td className="p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
+                                <td className="p-3 text-center text-slate-300">{item.qty}</td>
                                 <td className="p-3">
                                   <div className="flex items-center gap-2">
                                     {item.image_url && <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
                                     <span className="text-white font-medium">{item.unit}</span>
                                   </div>
                                 </td>
-                                <td className="p-3 text-center text-slate-300">{item.qty}</td>
                                 <td className="p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
@@ -641,14 +641,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
                                   </td>
                                   <td></td>
-                                  <td className="p-2 text-slate-500 text-xs">
-                                    <span className="text-cyan-400">#{idx + 1}</span> {inq.supplier_name}
-                                  </td>
                                   <td></td>
                                   <td></td>
+                                  <td className="p-2 text-slate-500 text-xs"><span className="text-cyan-400">Inquired #{idx + 1}</span></td>
                                   <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
                                   <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? `${inq.discount}%` : '-'}</td>
-                                  <td colSpan={6}></td>
+                                  <td></td>
+                                  <td className="p-2 text-cyan-400 text-xs">{inq.supplier_name}</td>
+                                  <td colSpan={4}></td>
                                 </tr>
                               ))}
                             </React.Fragment>
@@ -881,28 +881,31 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
   const [imagePreview, setImagePreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeField, setActiveField] = useState<'description' | 'supplier' | 'customer' | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Get unique descriptions from existing items
+  // Get unique values from existing items
   const allDescriptions = [...new Set(items.map(item => item.description).filter(Boolean))];
+  const allSuppliers = [...new Set(items.map(item => item.supplier_name).filter(Boolean))];
+  const allCustomers = [...new Set(items.map(item => item.customer).filter(Boolean))];
 
-  const handleDescriptionChange = (value: string) => {
-    setFormData({ ...formData, description: value });
+  const handleFieldChange = (field: 'description' | 'supplier_name' | 'customer', value: string) => {
+    setFormData({ ...formData, [field]: value });
     if (value.length >= 2) {
-      const filtered = allDescriptions.filter(desc => 
-        desc.toLowerCase().includes(value.toLowerCase())
+      const source = field === 'description' ? allDescriptions : field === 'supplier_name' ? allSuppliers : allCustomers;
+      const filtered = source.filter(item => 
+        item.toLowerCase().includes(value.toLowerCase())
       ).slice(0, 5);
       setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
+      setActiveField(field === 'supplier_name' ? 'supplier' : field);
     } else {
-      setShowSuggestions(false);
+      setActiveField(null);
     }
   };
 
-  const selectSuggestion = (desc: string) => {
-    setFormData({ ...formData, description: desc });
-    setShowSuggestions(false);
+  const selectSuggestion = (value: string, field: 'description' | 'supplier_name' | 'customer') => {
+    setFormData({ ...formData, [field]: value });
+    setActiveField(null);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1015,23 +1018,23 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
             <input 
               type="text" 
               value={formData.description} 
-              onChange={(e) => handleDescriptionChange(e.target.value)} 
-              onFocus={() => formData.description.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onChange={(e) => handleFieldChange('description', e.target.value)} 
+              onFocus={() => formData.description.length >= 2 && suggestions.length > 0 && setActiveField('description')}
+              onBlur={() => setTimeout(() => setActiveField(null), 200)}
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
               placeholder="Item description" 
               required 
             />
-            {showSuggestions && (
+            {activeField === 'description' && suggestions.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
-                {suggestions.map((desc, idx) => (
+                {suggestions.map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => selectSuggestion(desc)}
+                    onClick={() => selectSuggestion(item, 'description')}
                     className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
                   >
-                    {desc}
+                    {item}
                   </button>
                 ))}
               </div>
@@ -1062,9 +1065,32 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
 
           {/* Supplier Name, Contact */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name *</label>
-              <input type="text" value={formData.supplier_name} onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Supplier" required />
+              <input 
+                type="text" 
+                value={formData.supplier_name} 
+                onChange={(e) => handleFieldChange('supplier_name', e.target.value)} 
+                onFocus={() => formData.supplier_name.length >= 2 && setActiveField('supplier')}
+                onBlur={() => setTimeout(() => setActiveField(null), 200)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+                placeholder="Supplier" 
+                required 
+              />
+              {activeField === 'supplier' && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                  {suggestions.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectSuggestion(item, 'supplier_name')}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Contact</label>
@@ -1073,9 +1099,32 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
           </div>
 
           {/* Customer */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">Customer *</label>
-            <input type="text" value={formData.customer} onChange={(e) => setFormData({ ...formData, customer: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Customer name" required />
+            <input 
+              type="text" 
+              value={formData.customer} 
+              onChange={(e) => handleFieldChange('customer', e.target.value)} 
+              onFocus={() => formData.customer.length >= 2 && setActiveField('customer')}
+              onBlur={() => setTimeout(() => setActiveField(null), 200)}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+              placeholder="Customer name" 
+              required 
+            />
+            {activeField === 'customer' && suggestions.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                {suggestions.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectSuggestion(item, 'customer')}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Freight Cost, Freight Type */}
@@ -1158,29 +1207,33 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
       discount: inq.discount ? formatNum(inq.discount) : '',
     })) || []
   );
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeField, setActiveField] = useState<'description' | 'supplier' | 'customer' | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Get unique descriptions from existing items
+  // Get unique values from existing items
   const allDescriptions = [...new Set(items.map(i => i.description).filter(Boolean))];
+  const allSuppliers = [...new Set(items.map(i => i.supplier_name).filter(Boolean))];
+  const allCustomers = [...new Set(items.map(i => i.customer).filter(Boolean))];
 
-  const handleDescriptionChange = (value: string) => {
-    setFormData({ ...formData, description: value });
+  const handleFieldChange = (field: 'description' | 'supplier_name' | 'customer', value: string) => {
+    setFormData({ ...formData, [field]: value });
     if (value.length >= 2) {
-      const filtered = allDescriptions.filter(desc => 
-        desc.toLowerCase().includes(value.toLowerCase())
+      const source = field === 'description' ? allDescriptions : field === 'supplier_name' ? allSuppliers : allCustomers;
+      const filtered = source.filter(item => 
+        item.toLowerCase().includes(value.toLowerCase())
       ).slice(0, 5);
       setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
+      setActiveField(field === 'supplier_name' ? 'supplier' : field);
     } else {
-      setShowSuggestions(false);
+      setActiveField(null);
     }
   };
 
-  const selectSuggestion = (desc: string) => {
-    setFormData({ ...formData, description: desc });
-    setShowSuggestions(false);
+  const selectSuggestion = (value: string, field: 'description' | 'supplier_name' | 'customer') => {
+    setFormData({ ...formData, [field]: value });
+    setActiveField(null);
   };
+
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(item.image_url || '');
   const [loading, setLoading] = useState(false);
@@ -1292,22 +1345,22 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
             <input 
               type="text" 
               value={formData.description} 
-              onChange={(e) => handleDescriptionChange(e.target.value)} 
-              onFocus={() => formData.description.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onChange={(e) => handleFieldChange('description', e.target.value)} 
+              onFocus={() => formData.description.length >= 2 && setActiveField('description')}
+              onBlur={() => setTimeout(() => setActiveField(null), 200)}
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
               required 
             />
-            {showSuggestions && (
+            {activeField === 'description' && suggestions.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
-                {suggestions.map((desc, idx) => (
+                {suggestions.map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => selectSuggestion(desc)}
+                    onClick={() => selectSuggestion(item, 'description')}
                     className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
                   >
-                    {desc}
+                    {item}
                   </button>
                 ))}
               </div>
@@ -1338,9 +1391,31 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
 
           {/* Supplier Name, Contact */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name *</label>
-              <input type="text" value={formData.supplier_name} onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+              <input 
+                type="text" 
+                value={formData.supplier_name} 
+                onChange={(e) => handleFieldChange('supplier_name', e.target.value)} 
+                onFocus={() => formData.supplier_name.length >= 2 && setActiveField('supplier')}
+                onBlur={() => setTimeout(() => setActiveField(null), 200)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+                required 
+              />
+              {activeField === 'supplier' && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                  {suggestions.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectSuggestion(item, 'supplier_name')}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Contact</label>
@@ -1349,9 +1424,31 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
           </div>
 
           {/* Customer */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">Customer *</label>
-            <input type="text" value={formData.customer} onChange={(e) => setFormData({ ...formData, customer: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            <input 
+              type="text" 
+              value={formData.customer} 
+              onChange={(e) => handleFieldChange('customer', e.target.value)} 
+              onFocus={() => formData.customer.length >= 2 && setActiveField('customer')}
+              onBlur={() => setTimeout(() => setActiveField(null), 200)}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+              required 
+            />
+            {activeField === 'customer' && suggestions.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                {suggestions.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectSuggestion(item, 'customer')}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Freight Cost, Freight Type */}
