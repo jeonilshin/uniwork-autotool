@@ -334,8 +334,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Time-based filtering helpers - simplified for dashboard
-  const totalCost = items.reduce((sum, item) => sum + item.cost * item.qty, 0);
-  const totalFreight = items.reduce((sum, item) => sum + item.freight_cost, 0);
+  const deliveredNotPaidItems = items.filter(item => item.status === 'delivered' && !item.payment_collected);
+  const totalCost = deliveredNotPaidItems.reduce((sum, item) => sum + item.cost * item.qty, 0);
+  const totalFreight = deliveredNotPaidItems.reduce((sum, item) => sum + item.freight_cost, 0);
   const paidItems = items.filter(item => item.status === 'delivered' && item.payment_collected);
   const profit = paidItems.reduce((sum, item) => {
     const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
@@ -396,7 +397,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               {/* Stats - Simple Overview */}
               <div className="mb-8">
                 <h2 className="text-lg font-semibold text-white mb-4">Overview</h2>
-                <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'} gap-4`}>
+                <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-3'} gap-4`}>
                   <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
                     <p className="text-slate-400 text-sm">Total Items</p>
                     <p className="text-2xl font-bold text-white">{items.length}</p>
@@ -405,21 +406,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <p className="text-slate-400 text-sm">Inquired</p>
                     <p className="text-2xl font-bold text-cyan-400">{inquiredCount}</p>
                   </div>
-                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                    <p className="text-slate-400 text-sm">Total Cost</p>
-                    <p className="text-2xl font-bold text-red-400">{formatPeso(totalCost)}</p>
-                  </div>
-                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                    <p className="text-slate-400 text-sm">Total Freight</p>
-                    <p className="text-2xl font-bold text-orange-400">{formatPeso(totalFreight)}</p>
-                  </div>
                   {isAdmin && (
-                    <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
-                      <p className="text-slate-400 text-sm">Profit (Paid)</p>
-                      <p className={`text-2xl font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {profit >= 0 ? '+' : '-'}{formatPeso(Math.abs(profit))}
-                      </p>
-                    </div>
+                    <>
+                      <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                        <p className="text-slate-400 text-sm">Pending Cost</p>
+                        <p className="text-2xl font-bold text-red-400">{formatPeso(totalCost)}</p>
+                      </div>
+                      <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                        <p className="text-slate-400 text-sm">Pending Freight</p>
+                        <p className="text-2xl font-bold text-orange-400">{formatPeso(totalFreight)}</p>
+                      </div>
+                      <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-5 border border-white/10">
+                        <p className="text-slate-400 text-sm">Profit (Paid)</p>
+                        <p className={`text-2xl font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {profit >= 0 ? '+' : '-'}{formatPeso(Math.abs(profit))}
+                        </p>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
