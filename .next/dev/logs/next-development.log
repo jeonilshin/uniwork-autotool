@@ -1,18 +1,12 @@
-[00:00:00.763] Server  LOG     ✓ Ready in 589ms
-[00:00:01.252] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:02.026] Browser ERROR   uncaughtError: TypeError: item.discount.split is not a function
-[00:00:33.818] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
-[00:00:33.896] Server  LOG     ✓ Compiled in 346ms
-[00:00:34.059] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:35.324] Browser ERROR   uncaughtError: TypeError: inq.discount.split is not a function
-[00:00:58.114] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
-[00:00:58.122] Server  LOG     ✓ Compiled in 61ms
-[00:00:58.368] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:59.343] Browser ERROR   uncaughtError: TypeError: inq.discount.split is not a function
-[00:01:16.692] Server  LOG     ✓ Compiled in 53ms
-[00:01:16.708] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
-[00:01:16.974] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:35.363] Server  LOG     ✓ Compiled in 60ms
-[00:01:50.166] Server  LOG     ✓ Compiled in 46ms
-[00:02:05.811] Server  LOG     ✓ Compiled in 40ms
-[00:02:12.687] Server  LOG     ✓ Compiled in 35ms
+[00:00:00.955] Server  LOG     ✓ Ready in 749ms
+[00:00:04.627] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:05.741] Browser ERROR   {"__isAuthError":true,"code":"refresh_token_not_found","name":"AuthApiError","status":400}
+[00:00:10.040] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:02:13.629] Server  LOG     ✓ Compiled in 1023ms
+[00:02:46.228] Server  LOG     ✓ Compiled in 79ms
+[00:05:22.631] Server  LOG     ✓ Compiled in 92ms
+[00:05:41.080] Server  LOG     ✓ Compiled in 49ms
+[00:06:24.214] Server  LOG     ✓ Compiled in 58ms
+[00:06:31.327] Server  LOG     ✓ Compiled in 63ms
+[00:06:40.480] Server  LOG     ✓ Compiled in 31ms
+[00:08:59.475] Server  LOG     ✓ Compiled in 92ms

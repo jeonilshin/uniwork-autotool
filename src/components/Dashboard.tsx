@@ -570,17 +570,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </th>
-                          <th className="text-left p-3 text-slate-400 font-medium whitespace-nowrap">Date</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Qty</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
-                          <th className="text-left p-3 text-slate-400 font-medium">Description</th>
+                          <th className="text-left p-3 text-slate-400 font-medium">Particular</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Cost</th>
                           <th className="text-right p-3 text-slate-400 font-medium">Discount</th>
-                          <th className="text-right p-3 text-slate-400 font-medium">Sale</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Freight</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Supplier</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Customer</th>
-                          <th className="text-right p-3 text-slate-400 font-medium">Freight</th>
-                          <th className="text-center p-3 text-slate-400 font-medium">Status</th>
+                          <th className="text-right p-3 text-slate-400 font-medium">Sales</th>
+                          <th className="text-center p-3 text-slate-400 font-medium">Remarks</th>
                           <th className="text-center p-3 text-slate-400 font-medium whitespace-nowrap">D-Day</th>
                         </tr>
                       </thead>
@@ -599,26 +598,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     </button>
                                   )}
                                 </td>
-                                <td className="p-3 text-slate-300 whitespace-nowrap">{formatDate(item.created_at)}</td>
                                 <td className="p-3 text-center text-slate-300">{item.qty}</td>
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    {item.image_url && <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
-                                    <span className="text-white font-medium">{item.unit}</span>
-                                  </div>
-                                </td>
+                                <td className="p-3 text-white font-medium">{item.unit}</td>
                                 <td className="p-3 text-slate-300 max-w-[200px] truncate">{item.description}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-red-400 font-medium">{formatPeso(item.cost)}</span>
                                 </td>
                                 <td className="p-3 text-right text-orange-400">{item.discount ? String(item.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}</td>
+                                <td className="p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
+                                <td className="p-3 text-slate-300">{item.supplier_name}</td>
+                                <td className="p-3 text-slate-300">{item.customer}</td>
                                 <td className="p-3 text-right">
                                   <span className="text-emerald-400 font-medium">{formatPeso(item.sale)}</span>
                                   {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-500/20 text-purple-400">VAT</span>}
                                 </td>
-                                <td className="p-3 text-slate-300">{item.supplier_name}</td>
-                                <td className="p-3 text-slate-300">{item.customer}</td>
-                                <td className="p-3 text-right text-orange-400">{formatPeso(item.freight_cost)}</td>
                                 <td className="p-3 text-center">
                                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
                                     {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -643,7 +636,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   <td className="p-2 pl-6 text-slate-500">
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
                                   </td>
-                                  <td></td>
                                   <td></td>
                                   <td></td>
                                   <td className="p-2 text-slate-500 text-xs"><span className="text-cyan-400">Inquired #{idx + 1}</span></td>
@@ -1005,21 +997,21 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
             </label>
           </div>
 
-          {/* Unit, Qty */}
+          {/* Qty, Unit */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Unit *</label>
-              <input type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="pcs/box" required />
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Qty *</label>
               <input type="number" value={formData.qty} onChange={(e) => setFormData({ ...formData, qty: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="1" min="1" required />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit *</label>
+              <input type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="pcs/box" required />
+            </div>
           </div>
 
-          {/* Description */}
+          {/* Particular */}
           <div className="relative">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Particular *</label>
             <input 
               type="text" 
               value={formData.description} 
@@ -1027,7 +1019,7 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
               onFocus={() => formData.description.length >= 2 && suggestions.length > 0 && setActiveField('description')}
               onBlur={() => setTimeout(() => setActiveField(null), 200)}
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
-              placeholder="Item description" 
+              placeholder="Item particular" 
               required 
             />
             {activeField === 'description' && suggestions.length > 0 && (
@@ -1046,11 +1038,15 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
             )}
           </div>
 
-          {/* Cost, VAT, Discount, Sale */}
-          <div className="grid grid-cols-4 gap-4">
+          {/* Cost, Discount, VAT */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Cost (₱) *</label>
               <input type="text" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
+              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="e.g. 10 or 40/50" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">VAT</label>
@@ -1058,17 +1054,9 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
                 {formData.vat_type === 'vat_inclusive' ? 'VAT Inclusive' : 'Non-VAT'}
               </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
-              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="e.g. 10 or 40/50" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
-              <input type="text" value={formData.sale} onChange={(e) => setFormData({ ...formData, sale: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
-            </div>
           </div>
 
-          {/* Supplier Name, Contact */}
+          {/* Supplier Name, Supplier Contact */}
           <div className="grid grid-cols-2 gap-4">
             <div className="relative">
               <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name *</label>
@@ -1098,50 +1086,54 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Contact</label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Contact</label>
               <input type="text" value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
             </div>
           </div>
 
-          {/* Customer */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Customer *</label>
-            <input 
-              type="text" 
-              value={formData.customer} 
-              onChange={(e) => handleFieldChange('customer', e.target.value)} 
-              onFocus={() => formData.customer.length >= 2 && setActiveField('customer')}
-              onBlur={() => setTimeout(() => setActiveField(null), 200)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
-              placeholder="Customer name" 
-              required 
-            />
-            {activeField === 'customer' && suggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
-                {suggestions.map((item, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => selectSuggestion(item, 'customer')}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Customer Contact */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Customer Contact</label>
-            <input type="text" value={formData.customer_contact} onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
-          </div>
-
-          {/* Freight Cost, Freight Type */}
+          {/* Customer Name, Customer Contact */}
           <div className="grid grid-cols-2 gap-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Customer Name *</label>
+              <input 
+                type="text" 
+                value={formData.customer} 
+                onChange={(e) => handleFieldChange('customer', e.target.value)} 
+                onFocus={() => formData.customer.length >= 2 && setActiveField('customer')}
+                onBlur={() => setTimeout(() => setActiveField(null), 200)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+                placeholder="Customer name" 
+                required 
+              />
+              {activeField === 'customer' && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                  {suggestions.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectSuggestion(item, 'customer')}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Freight Cost (₱) *</label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Customer Contact</label>
+              <input type="text" value={formData.customer_contact} onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
+            </div>
+          </div>
+
+          {/* Sale, Freight, Freight Type */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
+              <input type="text" value={formData.sale} onChange={(e) => setFormData({ ...formData, sale: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Freight (₱) *</label>
               <input type="text" value={formData.freight_cost} onChange={(e) => setFormData({ ...formData, freight_cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="0.00" required />
             </div>
             <div>
@@ -1339,21 +1331,21 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
             </label>
           </div>
 
-          {/* Unit, Qty */}
+          {/* Qty, Unit */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Unit *</label>
-              <input type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Qty *</label>
               <input type="number" value={formData.qty} onChange={(e) => setFormData({ ...formData, qty: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" min="1" required />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit *</label>
+              <input type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
           </div>
 
-          {/* Description */}
+          {/* Particular */}
           <div className="relative">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Particular *</label>
             <input 
               type="text" 
               value={formData.description} 
@@ -1379,11 +1371,15 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
             )}
           </div>
 
-          {/* Cost, VAT, Discount, Sale */}
-          <div className="grid grid-cols-4 gap-4">
+          {/* Cost, Discount, VAT */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Cost (₱) *</label>
               <input type="text" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
+              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="e.g. 10 or 40/50" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">VAT</label>
@@ -1391,17 +1387,9 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
                 {formData.vat_type === 'vat_inclusive' ? 'VAT Inclusive' : 'Non-VAT'}
               </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Discount (%)</label>
-              <input type="text" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="e.g. 10 or 40/50" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
-              <input type="text" value={formData.sale} onChange={(e) => setFormData({ ...formData, sale: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
-            </div>
           </div>
 
-          {/* Supplier Name, Contact */}
+          {/* Supplier Name, Supplier Contact */}
           <div className="grid grid-cols-2 gap-4">
             <div className="relative">
               <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name *</label>
@@ -1430,49 +1418,53 @@ function EditItemModal({ item, userId, items, onClose, onUpdate }: { item: Inven
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Contact</label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Contact</label>
               <input type="text" value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
             </div>
           </div>
 
-          {/* Customer */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Customer *</label>
-            <input 
-              type="text" 
-              value={formData.customer} 
-              onChange={(e) => handleFieldChange('customer', e.target.value)} 
-              onFocus={() => formData.customer.length >= 2 && setActiveField('customer')}
-              onBlur={() => setTimeout(() => setActiveField(null), 200)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
-              required 
-            />
-            {activeField === 'customer' && suggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
-                {suggestions.map((item, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => selectSuggestion(item, 'customer')}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Customer Contact */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Customer Contact</label>
-            <input type="text" value={formData.customer_contact} onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
-          </div>
-
-          {/* Freight Cost, Freight Type */}
+          {/* Customer Name, Customer Contact */}
           <div className="grid grid-cols-2 gap-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Customer Name *</label>
+              <input 
+                type="text" 
+                value={formData.customer} 
+                onChange={(e) => handleFieldChange('customer', e.target.value)} 
+                onFocus={() => formData.customer.length >= 2 && setActiveField('customer')}
+                onBlur={() => setTimeout(() => setActiveField(null), 200)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" 
+                required 
+              />
+              {activeField === 'customer' && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+                  {suggestions.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectSuggestion(item, 'customer')}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-emerald-500/20 transition border-b border-white/5 last:border-0"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Freight Cost (₱) *</label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Customer Contact</label>
+              <input type="text" value={formData.customer_contact} onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Phone/Email" />
+            </div>
+          </div>
+
+          {/* Sale, Freight, Freight Type */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Sale (₱) *</label>
+              <input type="text" value={formData.sale} onChange={(e) => setFormData({ ...formData, sale: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Freight (₱) *</label>
               <input type="text" value={formData.freight_cost} onChange={(e) => setFormData({ ...formData, freight_cost: formatNumberInput(e.target.value) })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" required />
             </div>
             <div>
