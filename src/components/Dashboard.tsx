@@ -573,6 +573,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </th>
+                          <th className="text-center p-3 text-slate-400 font-medium whitespace-nowrap">Date</th>
                           <th className="text-center p-3 text-slate-400 font-medium">Qty</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Unit</th>
                           <th className="text-left p-3 text-slate-400 font-medium">Particular</th>
@@ -600,6 +601,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                       <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                     </button>
                                   )}
+                                </td>
+                                <td className="p-3 text-center text-slate-400 text-xs whitespace-nowrap">
+                                  {formatDate(item.created_at)}
                                 </td>
                                 <td className="p-3 text-center text-slate-300">{item.qty}</td>
                                 <td className="p-3 text-white font-medium">{item.unit}</td>
@@ -639,6 +643,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   <td className="p-2 pl-6 text-slate-500">
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
                                   </td>
+                                  <td></td>
                                   <td></td>
                                   <td></td>
                                   <td className="p-2 text-slate-500 text-xs"><span className="text-cyan-400">Inquired #{idx + 1}</span></td>

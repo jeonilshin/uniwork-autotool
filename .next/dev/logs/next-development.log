@@ -1,3 +1,5 @@
-[00:00:00.894] Server  LOG     ✓ Ready in 697ms
-[00:00:08.677] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:02.750] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:01.286] Server  LOG     ✓ Ready in 903ms
+[00:00:06.562] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:02.425] Server  LOG     ✓ Compiled in 88ms
+[00:01:19.935] Server  LOG     ✓ Compiled in 80ms
+[00:01:25.674] Server  LOG     ✓ Compiled in 76ms
