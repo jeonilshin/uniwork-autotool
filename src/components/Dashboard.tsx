@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import * as XLSX from 'xlsx';
 import { signOut, getUser, getUserRole } from '@/lib/auth';
 import {
@@ -82,22 +82,24 @@ const getDaysRemaining = (deliveredAt: string | null): number | null => {
 };
 
 
-const NotificationBell = ({ items, onSelectItem }: { items: InventoryItem[]; onSelectItem: (item: InventoryItem) => void }) => {
+const NotificationBell = memo(({ items, onSelectItem }: { items: InventoryItem[]; onSelectItem: (item: InventoryItem) => void }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   
-  const overdueItems = items.filter(item => {
-    if (item.status !== 'delivered' || item.payment_collected) return false;
-    const days = getDaysRemaining(item.delivered_at);
-    return days !== null && days <= 0;
-  });
+  const notifications = useMemo(() => {
+    const overdueItems = items.filter(item => {
+      if (item.status !== 'delivered' || item.payment_collected) return false;
+      const days = getDaysRemaining(item.delivered_at);
+      return days !== null && days <= 0;
+    });
 
-  const urgentItems = items.filter(item => {
-    if (item.status !== 'delivered' || item.payment_collected) return false;
-    const days = getDaysRemaining(item.delivered_at);
-    return days !== null && days > 0 && days <= 7;
-  });
+    const urgentItems = items.filter(item => {
+      if (item.status !== 'delivered' || item.payment_collected) return false;
+      const days = getDaysRemaining(item.delivered_at);
+      return days !== null && days > 0 && days <= 7;
+    });
 
-  const notifications = [...overdueItems, ...urgentItems];
+    return [...overdueItems, ...urgentItems];
+  }, [items]);
   const hasNotifications = notifications.length > 0;
 
   return (
@@ -146,18 +148,12 @@ const NotificationBell = ({ items, onSelectItem }: { items: InventoryItem[]; onS
       )}
     </div>
   );
-};
+});
 
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'inventory' | 'secretaries'>('inventory');
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartId, setDragStartId] = useState<string | null>(null);
-  const [dragStartSelected, setDragStartSelected] = useState(false);
-  const [showDragIndicator, setShowDragIndicator] = useState(false);
-  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
-  const [isDrawingSelection, setIsDrawingSelection] = useState(false);
   const [secretaries, setSecretaries] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -185,6 +181,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [userId, setUserId] = useState('');
   const [userRole, setUserRole] = useState<UserRole>('secretary');
   const [zoomLevel, setZoomLevel] = useState(100); // 100 = normal, 80 = smaller, 120 = larger
+
+  // Pagination state - CRITICAL for performance with large datasets
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50); // Default 50 items per page
 
   // Find feature states
   const [showFindDialog, setShowFindDialog] = useState(false);
@@ -243,6 +243,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [dragOverColumn, setDragOverColumn] = useState<ColumnKey | null>(null);
 
   const isAdmin = userRole === 'admin';
+
+  // Pagination logic - CRITICAL for performance - MUST BE BEFORE useEffect that uses totalPages
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return items.slice(startIndex, endIndex);
+  }, [items, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+
+  // Memoized callback for selecting items - prevents re-renders
+  const handleSelectItem = useCallback((item: InventoryItem) => {
+    setSelectedItem(item);
+  }, []);
 
   // Column resize handlers
   const startResize = (e: React.MouseEvent, column: ColumnKey) => {
@@ -442,9 +456,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setCurrentMatchIndex(0);
   };
 
-  // Keyboard shortcut for Cmd+F / Ctrl+F
+  // Keyboard shortcut for Cmd+F / Ctrl+F and pagination
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Find dialog
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault();
         setShowFindDialog(true);
@@ -452,33 +467,50 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       if (e.key === 'Escape' && showFindDialog) {
         closeFindDialog();
       }
+      
+      // Pagination shortcuts (only when not editing)
+      if (!editingItemId && !showFindDialog) {
+        if (e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          setCurrentPage(prev => Math.max(1, prev - 1));
+        }
+        if (e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          setCurrentPage(prev => Math.min(totalPages, prev + 1));
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showFindDialog]);
+  }, [showFindDialog, editingItemId, totalPages]);
 
   // Toggle all rows expanded/collapsed
   const [allExpanded, setAllExpanded] = useState(true);
 
-  const toggleAllRows = () => {
-    if (allExpanded) {
-      setExpandedRows(new Set());
-    } else {
-      setExpandedRows(new Set(items.filter(i => i.is_inquired && i.inquired_list?.length).map(i => i.id)));
-    }
-    setAllExpanded(!allExpanded);
-  };
+  const toggleAllRows = useCallback(() => {
+    setAllExpanded(prev => {
+      const newExpanded = !prev;
+      if (newExpanded) {
+        setExpandedRows(new Set(items.filter(i => i.is_inquired && i.inquired_list?.length).map(i => i.id)));
+      } else {
+        setExpandedRows(new Set());
+      }
+      return newExpanded;
+    });
+  }, [items]);
 
-  const toggleRow = (id: string) => {
-    const newSet = new Set(expandedRows);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setExpandedRows(newSet);
-  };
+  const toggleRow = useCallback((id: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Initialize expanded rows when items load
   useEffect(() => {
@@ -541,21 +573,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleLogout = async () => { await signOut(); onLogout(); };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try { 
       await deleteItem(id); 
-      setItems(items.filter(item => item.id !== id)); 
+      setItems(prev => prev.filter(item => item.id !== id)); 
       setSelectedItems(prev => {
         const newSet = new Set(prev);
         newSet.delete(id);
         return newSet;
       });
+      setSelectedItem(null);
     }
     catch (error) { console.error('Failed to delete item:', error); }
-  };
+  }, []);
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = useCallback(async () => {
     if (selectedItems.size === 0) {
       alert('Please select items to delete');
       return;
@@ -566,15 +599,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     try {
       const deletePromises = Array.from(selectedItems).map(id => deleteItem(id));
       await Promise.all(deletePromises);
-      setItems(items.filter(item => !selectedItems.has(item.id)));
+      setItems(prev => prev.filter(item => !selectedItems.has(item.id)));
       setSelectedItems(new Set());
     } catch (error) {
       console.error('Failed to delete items:', error);
       alert('Failed to delete some items. Please try again.');
     }
-  };
+  }, [selectedItems]);
 
-  const toggleSelectItem = (id: string) => {
+  const toggleSelectItem = useCallback((id: string) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -584,183 +617,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const handleMouseDown = (id: string, e: React.MouseEvent) => {
-    // Don't start drag if clicking on checkbox or other interactive elements
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'SVG' || target.closest('button') || target.closest('input')) {
-      return;
-    }
-    
-    e.preventDefault();
-    setIsDragging(true);
-    setShowDragIndicator(true);
-    setDragStartId(id);
-    const isSelected = selectedItems.has(id);
-    setDragStartSelected(isSelected);
-    
-    // Toggle the item
-    setSelectedItems(prev => {
-      const newSet = new Set(prev);
-      if (isSelected) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  // Selection box drawing handlers
-  const handleTableMouseDown = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    // Only start selection box if clicking on the table container itself (not on rows or cells)
-    if (target.closest('tr') || target.tagName === 'INPUT' || target.tagName === 'BUTTON') {
-      return;
-    }
-    
-    setIsDrawingSelection(true);
-    setSelectionBox({
-      startX: e.clientX,
-      startY: e.clientY,
-      endX: e.clientX,
-      endY: e.clientY,
-    });
-  };
-
-  const handleTableMouseMove = (e: React.MouseEvent) => {
-    if (isDrawingSelection && selectionBox) {
-      setSelectionBox({
-        ...selectionBox,
-        endX: e.clientX,
-        endY: e.clientY,
-      });
-      
-      // Check which rows intersect with the selection box
-      const rows = document.querySelectorAll('tbody tr[data-item-id]');
-      const newSelected = new Set<string>();
-      
-      rows.forEach((row) => {
-        const rect = row.getBoundingClientRect();
-        const itemId = row.getAttribute('data-item-id');
-        if (!itemId) return;
-        
-        // Check if row intersects with selection box
-        const boxLeft = Math.min(selectionBox.startX, e.clientX);
-        const boxRight = Math.max(selectionBox.startX, e.clientX);
-        const boxTop = Math.min(selectionBox.startY, e.clientY);
-        const boxBottom = Math.max(selectionBox.startY, e.clientY);
-        
-        if (
-          rect.left < boxRight &&
-          rect.right > boxLeft &&
-          rect.top < boxBottom &&
-          rect.bottom > boxTop
-        ) {
-          newSelected.add(itemId);
-        }
-      });
-      
-      setSelectedItems(newSelected);
-    }
-  };
-
-  const handleTableMouseUp = () => {
-    setIsDrawingSelection(false);
-    setSelectionBox(null);
-  };
-
-  const handleMouseEnter = (id: string) => {
-    if (isDragging) {
-      setSelectedItems(prev => {
-        const newSet = new Set(prev);
-        if (dragStartSelected) {
-          // If we started on a selected item, deselect items we drag over
-          newSet.delete(id);
-        } else {
-          // If we started on an unselected item, select items we drag over
-          newSet.add(id);
-        }
-        return newSet;
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setShowDragIndicator(false);
-    setDragStartId(null);
-    setDragStartSelected(false);
-  };
-
-  // Add global mouse up and move listeners for selection box
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (isDragging) {
-        setIsDragging(false);
-        setShowDragIndicator(false);
-        setDragStartId(null);
-        setDragStartSelected(false);
-      }
-      if (isDrawingSelection) {
-        setIsDrawingSelection(false);
-        setSelectionBox(null);
-      }
-    };
-    
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isDrawingSelection && selectionBox) {
-        setSelectionBox({
-          ...selectionBox,
-          endX: e.clientX,
-          endY: e.clientY,
-        });
-        
-        // Check which rows intersect with the selection box
-        const rows = document.querySelectorAll('tbody tr[data-item-id]');
-        const newSelected = new Set<string>();
-        
-        rows.forEach((row) => {
-          const rect = row.getBoundingClientRect();
-          const itemId = row.getAttribute('data-item-id');
-          if (!itemId) return;
-          
-          // Check if row intersects with selection box
-          const boxLeft = Math.min(selectionBox.startX, e.clientX);
-          const boxRight = Math.max(selectionBox.startX, e.clientX);
-          const boxTop = Math.min(selectionBox.startY, e.clientY);
-          const boxBottom = Math.max(selectionBox.startY, e.clientY);
-          
-          if (
-            rect.left < boxRight &&
-            rect.right > boxLeft &&
-            rect.top < boxBottom &&
-            rect.bottom > boxTop
-          ) {
-            newSelected.add(itemId);
-          }
-        });
-        
-        setSelectedItems(newSelected);
-      }
-    };
-    
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-    };
-  }, [isDragging, isDrawingSelection, selectionBox]);
-
-  const toggleSelectAll = () => {
-    if (selectedItems.size === items.length) {
+  const toggleSelectAll = useCallback(() => {
+    if (selectedItems.size === paginatedItems.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(items.map(item => item.id)));
+      setSelectedItems(new Set(paginatedItems.map(item => item.id)));
     }
-  };
+  }, [selectedItems.size, paginatedItems]);
 
   const handleDeleteSecretary = async (id: string) => {
     if (!confirm('Remove this secretary?')) return;
@@ -768,30 +633,30 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     catch (error) { console.error('Failed to delete secretary:', error); }
   };
 
-  const handleStatusChange = async (id: string, status: ItemStatus) => {
+  const handleStatusChange = useCallback(async (id: string, status: ItemStatus) => {
     try {
       const updated = await updateItemStatus(id, status);
-      setItems(items.map(item => (item.id === id ? updated : item)));
-      if (selectedItem?.id === id) setSelectedItem(updated);
+      setItems(prev => prev.map(item => (item.id === id ? updated : item)));
+      setSelectedItem(prev => prev?.id === id ? updated : prev);
     } catch (error) { 
       const msg = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to update status:', msg, error); 
       alert('Failed to update status: ' + msg);
     }
-  };
+  }, []);
 
-  const handleCollectPayment = async (id: string) => {
+  const handleCollectPayment = useCallback(async (id: string) => {
     if (!confirm('Mark payment as collected?')) return;
     try {
       const updated = await collectPayment(id);
-      setItems(items.map(item => (item.id === id ? updated : item)));
-      if (selectedItem?.id === id) setSelectedItem(updated);
+      setItems(prev => prev.map(item => (item.id === id ? updated : item)));
+      setSelectedItem(prev => prev?.id === id ? updated : prev);
     } catch (error) { 
       const msg = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to collect payment:', msg, error); 
       alert('Failed to collect payment: ' + msg);
     }
-  };
+  }, []);
 
   // Parse date from CSV (handles various formats like "13", "April", "Apr-23", "2023")
   const parseCSVDate = (dateStr: string, currentYear?: string, currentMonth?: string, currentDay?: string): string => {
@@ -1140,15 +1005,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Inline editing handlers
-  const startEdit = (itemId: string, field: string, currentValue: any) => {
+  const startEdit = useCallback((itemId: string, field: string, currentValue: any) => {
     setEditingItemId(itemId);
     setEditingField(field);
     // Don't show "-" in edit mode, show empty string instead
     const valueToEdit = (currentValue === '-' || currentValue === null || currentValue === undefined) ? '' : String(currentValue);
     setEditValue(valueToEdit);
-  };
+  }, []);
 
-  const saveEdit = async () => {
+  const saveEdit = useCallback(async () => {
     if (!editingItemId || !editingField) return;
     
     try {
@@ -1172,7 +1037,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       }
       
       const updated = await updateItem(editingItemId, updateData);
-      setItems(items.map(item => (item.id === editingItemId ? updated : item)));
+      setItems(prev => prev.map(item => (item.id === editingItemId ? updated : item)));
       
       setEditingItemId(null);
       setEditingField(null);
@@ -1182,22 +1047,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       console.error('Failed to update:', msg, error);
       alert('Failed to update: ' + msg);
     }
-  };
+  }, [editingItemId, editingField, editValue]);
 
-  const cancelEdit = () => {
+  const cancelEdit = useCallback(() => {
     setEditingItemId(null);
     setEditingField(null);
     setEditValue('');
-  };
+  }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       saveEdit();
     } else if (e.key === 'Escape') {
       cancelEdit();
     }
-  };
+  }, [saveEdit, cancelEdit]);
 
   // Render cell based on column type
   const renderCell = (item: InventoryItem, colKey: ColumnKey) => {
@@ -1360,47 +1225,30 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  // Time-based filtering helpers - simplified for dashboard
-  const deliveredNotPaidItems = items.filter(item => item.status === 'delivered' && !item.payment_collected);
-  const totalCost = deliveredNotPaidItems.reduce((sum, item) => sum + item.cost * item.qty, 0);
-  const totalFreight = deliveredNotPaidItems.reduce((sum, item) => sum + item.freight_cost, 0);
-  const paidItems = items.filter(item => item.status === 'delivered' && item.payment_collected);
-  const profit = paidItems.reduce((sum, item) => {
-    const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
-    return sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * discountVal / 100));
-  }, 0);
-  const inquiredCount = items.filter(item => item.is_inquired).length;
+  // Time-based filtering helpers - simplified for dashboard - MEMOIZED for performance
+  const statistics = useMemo(() => {
+    const deliveredNotPaidItems = items.filter(item => item.status === 'delivered' && !item.payment_collected);
+    const totalCost = deliveredNotPaidItems.reduce((sum, item) => sum + item.cost * item.qty, 0);
+    const totalFreight = deliveredNotPaidItems.reduce((sum, item) => sum + item.freight_cost, 0);
+    const paidItems = items.filter(item => item.status === 'delivered' && item.payment_collected);
+    const profit = paidItems.reduce((sum, item) => {
+      const discountVal = item.discount ? parseFloat(String(item.discount).split('/')[0]) || 0 : 0;
+      return sum + ((item.sale - item.cost) * item.qty - (item.sale * item.qty * discountVal / 100));
+    }, 0);
+    const inquiredCount = items.filter(item => item.is_inquired).length;
+    
+    return { totalCost, totalFreight, profit, inquiredCount };
+  }, [items]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters]);
 
 
   return (
     <ScreenshotProtection enabled={!isAdmin}>
       <div className="min-h-screen bg-gray-50">
-        {/* Drag Selection Indicator */}
-        {showDragIndicator && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-blue-600 text-white rounded-full shadow-lg flex items-center gap-3 animate-pulse">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
-            </svg>
-            <span className="font-semibold">
-              {dragStartSelected ? 'Drag to deselect' : 'Drag to select'} • {selectedItems.size} selected
-            </span>
-          </div>
-        )}
-        
-        {/* Selection Box Overlay */}
-        {selectionBox && (
-          <div
-            className="fixed pointer-events-none z-40"
-            style={{
-              left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
-              top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
-              width: `${Math.abs(selectionBox.endX - selectionBox.startX)}px`,
-              height: `${Math.abs(selectionBox.endY - selectionBox.startY)}px`,
-              border: '2px dashed #3b82f6',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            }}
-          />
-        )}
         
         <header className="bg-white border-b border-gray-200 shadow-sm">
           <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
@@ -1463,6 +1311,44 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {/* Pagination Info */}
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-xs text-gray-600">
+                        {items.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, items.length)} of {items.length}
+                      </span>
+                      <select 
+                        value={itemsPerPage} 
+                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        className="px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                        <option value={200}>200</option>
+                      </select>
+                    </div>
+                    {/* Pagination Buttons */}
+                    <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-1">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="p-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        title="Previous Page"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <span className="px-2 text-xs text-gray-600 min-w-[60px] text-center">
+                        {currentPage}/{totalPages || 1}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="p-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        title="Next Page"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
                     <button onClick={() => setShowFilters(!showFilters)} className={`px-3 py-2 text-sm rounded-lg border transition flex items-center gap-2 ${showFilters || filters.status !== 'all' || filters.freightType !== 'all' || filters.inquired !== 'all' ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900'}`}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                       <span className="hidden sm:inline">Filters</span>
@@ -1608,26 +1494,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 /* List View - Excel Style */
                 <div 
                   className="bg-white border border-gray-300 shadow-sm overflow-hidden relative"
-                  onMouseDown={handleTableMouseDown}
-                  onMouseMove={handleTableMouseMove}
-                  onMouseUp={handleTableMouseUp}
                 >
                   <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 220px)', overflowY: 'auto'}}>
                     <div style={{transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: `${10000 / zoomLevel}%`}}>
                       <table className="w-full text-sm" style={{borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1600px'}}>
                       <thead className="sticky top-0 z-10">
                         <tr className="border-b-2 border-gray-400 bg-gray-100">
-                          {(selectedItems.size > 0 || isDragging) && (
-                            <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12 bg-gray-100">
-                              <input
-                                type="checkbox"
-                                checked={items.length > 0 && selectedItems.size === items.length}
-                                onChange={toggleSelectAll}
-                                className="w-4 h-4 cursor-pointer"
-                                title="Select All"
-                              />
-                            </th>
-                          )}
+                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12 bg-gray-100">
+                            <input
+                              type="checkbox"
+                              checked={paginatedItems.length > 0 && selectedItems.size === paginatedItems.length}
+                              onChange={toggleSelectAll}
+                              className="w-4 h-4 cursor-pointer"
+                              title="Select All"
+                            />
+                          </th>
                           <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-10 bg-gray-100">
                             <button onClick={toggleAllRows} className="flex items-center justify-center gap-1 hover:text-gray-900 transition mx-auto">
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -1661,7 +1542,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </tr>
                       </thead>
                       <tbody>
-                        {items.map((item, index) => {
+                        {paginatedItems.map((item, index) => {
                           const hasInquired = item.is_inquired && item.inquired_list && item.inquired_list.length > 0;
                           const isExpanded = expandedRows.has(item.id);
                           const isSelected = selectedItems.has(item.id);
@@ -1669,23 +1550,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             <React.Fragment key={item.id}>
                               <tr 
                                 data-item-id={item.id}
-                                className={`border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50 ${isSelected ? 'bg-blue-100 border-l-4 border-l-blue-500' : ''} ${isDragging ? 'cursor-crosshair' : ''}`}
-                                onMouseDown={(e) => handleMouseDown(item.id, e)}
-                                onMouseEnter={() => handleMouseEnter(item.id)}
-                                onMouseUp={handleMouseUp}
-                                style={{ userSelect: 'none' }}
+                                className={`border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50 ${isSelected ? 'bg-blue-100 border-l-4 border-l-blue-500' : ''}`}
                               >
-                                {(selectedItems.size > 0 || isDragging) && (
-                                  <td className="p-2 text-center border-r border-gray-200 w-12">
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={() => toggleSelectItem(item.id)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="w-4 h-4 cursor-pointer"
-                                    />
-                                  </td>
-                                )}
+                                <td className="p-2 text-center border-r border-gray-200 w-12">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectItem(item.id)}
+                                    className="w-4 h-4 cursor-pointer"
+                                  />
+                                </td>
                                 <td className="p-2 border-r border-gray-200 w-10">
                                   {hasInquired ? (
                                     <button onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }} className="text-gray-600 hover:text-gray-900 transition">
