@@ -175,7 +175,172 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [highlightedMatch, setHighlightedMatch] = useState<{ itemId: string; field: string } | null>(null);
 
+  // Column resizing and reordering states
+  type ColumnKey = 'date' | 'brand' | 'part_number' | 'description' | 'cost' | 'unit' | 'discount' | 'supplier' | 'sale' | 'customer' | 'qty' | 'remark';
+  
+  // Default column configuration
+  const defaultColumnWidths: Record<ColumnKey, number> = {
+    date: 100,
+    brand: 130,
+    part_number: 130,
+    description: 400,
+    cost: 120,
+    unit: 80,
+    discount: 90,
+    supplier: 150,
+    sale: 120,
+    customer: 150,
+    qty: 70,
+    remark: 150,
+  };
+  
+  const defaultColumnOrder: ColumnKey[] = [
+    'date', 'brand', 'part_number', 'description', 'cost', 'unit', 'discount', 'supplier', 'sale', 'customer', 'qty', 'remark'
+  ];
+
+  // Load user preferences from localStorage
+  const loadUserPreferences = () => {
+    if (typeof window === 'undefined') return { widths: defaultColumnWidths, order: defaultColumnOrder };
+    
+    try {
+      const savedWidths = localStorage.getItem(`columnWidths_${userId}`);
+      const savedOrder = localStorage.getItem(`columnOrder_${userId}`);
+      
+      return {
+        widths: savedWidths ? JSON.parse(savedWidths) : defaultColumnWidths,
+        order: savedOrder ? JSON.parse(savedOrder) : defaultColumnOrder,
+      };
+    } catch (error) {
+      console.error('Failed to load user preferences:', error);
+      return { widths: defaultColumnWidths, order: defaultColumnOrder };
+    }
+  };
+
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(defaultColumnWidths);
+  const [columnOrder, setColumnOrder] = useState<ColumnKey[]>(defaultColumnOrder);
+  const [resizingColumn, setResizingColumn] = useState<ColumnKey | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const [draggingColumn, setDraggingColumn] = useState<ColumnKey | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<ColumnKey | null>(null);
+
   const isAdmin = userRole === 'admin';
+
+  // Column resize handlers
+  const startResize = (e: React.MouseEvent, column: ColumnKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizingColumn(column);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth(columnWidths[column]);
+  };
+
+  useEffect(() => {
+    if (!resizingColumn) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const diff = e.clientX - resizeStartX;
+      const newWidth = Math.max(50, resizeStartWidth + diff);
+      setColumnWidths(prev => ({ ...prev, [resizingColumn]: newWidth }));
+    };
+
+    const handleMouseUp = () => {
+      setResizingColumn(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingColumn, resizeStartX, resizeStartWidth]);
+
+  // Column reorder handlers
+  const handleDragStart = (e: React.DragEvent, column: ColumnKey) => {
+    setDraggingColumn(column);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, column: ColumnKey) => {
+    e.preventDefault();
+    if (draggingColumn && draggingColumn !== column) {
+      setDragOverColumn(column);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetColumn: ColumnKey) => {
+    e.preventDefault();
+    if (!draggingColumn || draggingColumn === targetColumn) {
+      setDraggingColumn(null);
+      setDragOverColumn(null);
+      return;
+    }
+
+    const newOrder = [...columnOrder];
+    const dragIndex = newOrder.indexOf(draggingColumn);
+    const dropIndex = newOrder.indexOf(targetColumn);
+    
+    newOrder.splice(dragIndex, 1);
+    newOrder.splice(dropIndex, 0, draggingColumn);
+    
+    setColumnOrder(newOrder);
+    setDraggingColumn(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingColumn(null);
+    setDragOverColumn(null);
+  };
+
+  // Column metadata
+  const columnLabels: Record<ColumnKey, string> = {
+    date: 'Date',
+    brand: 'Brand',
+    part_number: 'Part Number',
+    description: 'Description',
+    cost: 'Cost',
+    unit: 'Unit',
+    discount: 'Discount %',
+    supplier: 'Supplier',
+    sale: 'Sale',
+    customer: 'Customer',
+    qty: 'Qty',
+    remark: 'Remark',
+  };
+
+  // Load user preferences when userId is available
+  useEffect(() => {
+    if (userId) {
+      const prefs = loadUserPreferences();
+      setColumnWidths(prefs.widths);
+      setColumnOrder(prefs.order);
+    }
+  }, [userId]);
+
+  // Save column widths to localStorage when they change
+  useEffect(() => {
+    if (userId && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`columnWidths_${userId}`, JSON.stringify(columnWidths));
+      } catch (error) {
+        console.error('Failed to save column widths:', error);
+      }
+    }
+  }, [columnWidths, userId]);
+
+  // Save column order to localStorage when it changes
+  useEffect(() => {
+    if (userId && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`columnOrder_${userId}`, JSON.stringify(columnOrder));
+      } catch (error) {
+        console.error('Failed to save column order:', error);
+      }
+    }
+  }, [columnOrder, userId]);
 
   // Zoom controls
   const zoomIn = () => setZoomLevel(prev => Math.min(prev + 10, 150));
@@ -216,6 +381,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setHighlightedMatch(null);
     }
   }, [items]);
+
+  // Helper function to check if a cell has a match (for light blue highlighting)
+  const hasMatch = (itemId: string, field: string) => {
+    return findMatches.some(match => match.itemId === itemId && match.field === field);
+  };
+
+  // Helper function to check if a cell is the current match (for yellow highlighting)
+  const isCurrentMatch = (itemId: string, field: string) => {
+    return highlightedMatch?.itemId === itemId && highlightedMatch?.field === field;
+  };
 
   const goToNextMatch = () => {
     if (findMatches.length === 0) return;
@@ -299,7 +474,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const data = await getFilteredItems({ ...filters, searchQuery }); 
       setItems(data); 
     }
-    catch (error) { console.error('Failed to fetch items:', error); }
+    catch (error) { 
+      console.error('Failed to fetch items:', error); 
+      // Don't show error for empty search
+      if (searchQuery) {
+        alert('Search failed. Please try again.');
+      }
+    }
     finally { setLoading(false); }
   }, [filters, searchQuery]);
 
@@ -437,6 +618,167 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  // Render cell based on column type
+  const renderCell = (item: InventoryItem, colKey: ColumnKey) => {
+    const cellId = `cell-${item.id}-${colKey === 'description' ? 'particular' : colKey === 'supplier' ? 'supplier_name' : colKey === 'customer' ? 'customer_name' : colKey}`;
+    const width = columnWidths[colKey];
+
+    switch (colKey) {
+      case 'date':
+        return (
+          <td key={colKey} className="p-2 text-center text-gray-600 text-xs whitespace-nowrap border-r border-gray-200" style={{width: `${width}px`}}>
+            {formatDate(item.created_at)}
+          </td>
+        );
+      
+      case 'brand':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'brand' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'brand', item.brand)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'brand') ? 'bg-yellow-200' : hasMatch(item.id, 'brand') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.brand || '-'}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'part_number':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'part_number' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'part_number', item.part_number)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'part_number') ? 'bg-yellow-200' : hasMatch(item.id, 'part_number') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.part_number || '-'}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'description':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'description' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'description', item.particular)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'particular') ? 'bg-yellow-200' : hasMatch(item.id, 'particular') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.particular || '-'}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'cost':
+        return (
+          <td key={colKey} className="p-2 text-right border-r border-gray-200" style={{width: `${width}px`}}>
+            {editingItemId === item.id && editingField === 'cost' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'cost', item.cost)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+                <span className="text-red-600 font-medium">{formatPeso(item.cost)}</span>
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'unit':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 font-medium border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'unit' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'unit', item.unit)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'unit') ? 'bg-yellow-200' : hasMatch(item.id, 'unit') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.unit}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'discount':
+        return (
+          <td key={colKey} className="p-2 text-right text-orange-600 border-r border-gray-200" style={{width: `${width}px`}}>
+            {editingItemId === item.id && editingField === 'discount' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'discount', item.discount)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+                {item.discount || '-'}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'supplier':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'supplier_name' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'supplier_name', item.supplier_name)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'supplier_name') ? 'bg-yellow-200' : hasMatch(item.id, 'supplier_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.supplier_name}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'sale':
+        return (
+          <td key={colKey} className="p-2 text-right border-r border-gray-200" style={{width: `${width}px`}}>
+            {editingItemId === item.id && editingField === 'sale' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'sale', item.sale)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+                <span className="text-green-600 font-medium">{formatPeso(item.sale)}</span>
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'customer':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'customer_name' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'customer_name', item.customer_name)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'customer_name') ? 'bg-yellow-200' : hasMatch(item.id, 'customer_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.customer_name}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'qty':
+        return (
+          <td key={colKey} className="p-2 text-center text-gray-900 border-r border-gray-200" style={{width: `${width}px`}}>
+            {editingItemId === item.id && editingField === 'qty' ? (
+              <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-center focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'qty', item.qty)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+                {item.qty}
+              </div>
+            )}
+          </td>
+        );
+      
+      case 'remark':
+        return (
+          <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
+            {editingItemId === item.id && editingField === 'remark' ? (
+              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+            ) : (
+              <div onClick={() => startEdit(item.id, 'remark', item.remark)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'remark') ? 'bg-yellow-200' : hasMatch(item.id, 'remark') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+                {item.remark || '-'}
+              </div>
+            )}
+          </td>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   // Time-based filtering helpers - simplified for dashboard
   const deliveredNotPaidItems = items.filter(item => item.status === 'delivered' && !item.payment_collected);
   const totalCost = deliveredNotPaidItems.reduce((sum, item) => sum + item.cost * item.qty, 0);
@@ -519,7 +861,56 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       </button>
                     </div>
-                    <button onClick={() => setShowAddModal(true)} className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        if (confirm('Reset column widths and order to default?')) {
+                          setColumnWidths(defaultColumnWidths);
+                          setColumnOrder(defaultColumnOrder);
+                        }
+                      }} 
+                      className="px-4 py-3 bg-gray-50 border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition flex items-center gap-2"
+                      title="Reset column layout to default"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="hidden sm:inline">Reset Layout</span>
+                    </button>
+                    <button onClick={async () => {
+                      try {
+                        const item = await addItem({
+                          image_url: null,
+                          brand: '',
+                          part_number: null,
+                          qty: 1,
+                          unit: '-',
+                          particular: '-',
+                          cost: 0,
+                          discount: null,
+                          vat_type: 'non_vat',
+                          supplier_name: '-',
+                          supplier_contact: '',
+                          customer_name: '-',
+                          customer_contact: null,
+                          sale: 0,
+                          freight_cost: 0,
+                          freight_type: 'sea',
+                          status: 'inquired',
+                          is_inquired: false,
+                          inquired_list: null,
+                          delivered_at: null,
+                          payment_collected: false,
+                          remark: null,
+                          user_id: userId,
+                        });
+                        setItems([item, ...items]);
+                      } catch (error: any) {
+                        console.error('Add item error - Full error object:', error);
+                        console.error('Add item error - Stringified:', JSON.stringify(error, null, 2));
+                        const errorMsg = error?.message || error?.details || error?.hint || error?.code || 'Unknown error. Please check browser console (F12) for details.';
+                        alert('Failed to add item: ' + errorMsg + '\n\nPlease check the browser console (F12 → Console tab) for more details.');
+                      }
+                    }} className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition flex items-center gap-2">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       <span className="hidden sm:inline">Add Item</span>
                     </button>
@@ -599,18 +990,31 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </th>
-                          <th className="text-center p-2 text-gray-700 font-semibold whitespace-nowrap border-r border-gray-300" style={{width: '100px'}}>Date</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '130px'}}>Brand</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '130px'}}>Part Number</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '400px'}}>Description</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '120px'}}>Cost</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '80px'}}>Unit</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '90px'}}>Discount</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '150px'}}>Supplier</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '120px'}}>Sale</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '150px'}}>Customer</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300" style={{width: '70px'}}>Qty</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold" style={{width: '150px'}}>Remark</th>
+                          {columnOrder.map((colKey) => (
+                            <th
+                              key={colKey}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, colKey)}
+                              onDragOver={(e) => handleDragOver(e, colKey)}
+                              onDrop={(e) => handleDrop(e, colKey)}
+                              onDragEnd={handleDragEnd}
+                              className={`text-center p-2 text-gray-700 font-semibold border-r border-gray-300 relative group ${
+                                draggingColumn === colKey ? 'opacity-50' : ''
+                              } ${dragOverColumn === colKey ? 'bg-blue-100' : ''}`}
+                              style={{ width: `${columnWidths[colKey]}px`, cursor: draggingColumn ? 'grabbing' : 'grab' }}
+                            >
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="select-none">{columnLabels[colKey]}</span>
+                              </div>
+                              {/* Resize handle */}
+                              <div
+                                onMouseDown={(e) => startResize(e, colKey)}
+                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 group-hover:bg-blue-300"
+                                style={{ zIndex: 10 }}
+                              />
+                            </th>
+                          ))}
+                          <th className="text-center p-2 text-gray-700 font-semibold w-12"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -628,196 +1032,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     </button>
                                   )}
                                 </td>
-                                <td className="p-2 text-center text-gray-600 text-xs whitespace-nowrap border-r border-gray-200" style={{width: '100px'}}>
-                                  {formatDate(item.created_at)}
-                                </td>
-                                <td className="p-2 text-gray-900 border-r border-gray-200" style={{width: '130px'}} id={`cell-${item.id}-brand`}>
-                                  {editingItemId === item.id && editingField === 'brand' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'brand', item.brand)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'brand' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.brand || '-'}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-gray-900 border-r border-gray-200" style={{width: '130px'}} id={`cell-${item.id}-part_number`}>
-                                  {editingItemId === item.id && editingField === 'part_number' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'part_number', item.part_number)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'part_number' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.part_number || '-'}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-gray-900 border-r border-gray-200" style={{width: '400px'}} id={`cell-${item.id}-particular`}>
-                                  {editingItemId === item.id && editingField === 'description' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'description', item.particular)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'particular' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.particular || '-'}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-right border-r border-gray-200" style={{width: '120px'}}>
-                                  {editingItemId === item.id && editingField === 'cost' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'cost', item.cost)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
-                                      <span className="text-red-600 font-medium">{formatPeso(item.cost)}</span>
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-gray-900 font-medium border-r border-gray-200" style={{width: '80px'}} id={`cell-${item.id}-unit`}>
-                                  {editingItemId === item.id && editingField === 'unit' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'unit', item.unit)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'unit' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.unit}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-right text-orange-600 border-r border-gray-200" style={{width: '90px'}}>
-                                  {editingItemId === item.id && editingField === 'discount' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'discount', item.discount)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
-                                      {item.discount ? String(item.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-gray-900 border-r border-gray-200" style={{width: '150px'}} id={`cell-${item.id}-supplier_name`}>
-                                  {editingItemId === item.id && editingField === 'supplier_name' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'supplier_name', item.supplier_name)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'supplier_name' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.supplier_name}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-right border-r border-gray-200" style={{width: '120px'}}>
-                                  {editingItemId === item.id && editingField === 'sale' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'sale', item.sale)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
-                                      <span className="text-green-600 font-medium">{formatPeso(item.sale)}</span>
-                                      {item.vat_type === 'vat_inclusive' && <span className="ml-1 px-1 py-0.5 text-xs rounded bg-purple-100 text-purple-700 border border-purple-300">VAT</span>}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-gray-900 border-r border-gray-200" style={{width: '150px'}} id={`cell-${item.id}-customer_name`}>
-                                  {editingItemId === item.id && editingField === 'customer_name' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'customer_name', item.customer_name)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'customer_name' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.customer_name}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-center text-gray-900 border-r border-gray-200" style={{width: '70px'}}>
-                                  {editingItemId === item.id && editingField === 'qty' ? (
-                                    <input
-                                      type="number"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded text-center focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'qty', item.qty)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
-                                      {item.qty}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2 text-gray-900" style={{width: '150px'}} id={`cell-${item.id}-remark`}>
-                                  {editingItemId === item.id && editingField === 'remark' ? (
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none"
-                                    />
-                                  ) : (
-                                    <div onClick={() => startEdit(item.id, 'remark', item.remark)} className={`cursor-pointer px-2 py-1 rounded ${highlightedMatch?.itemId === item.id && highlightedMatch?.field === 'remark' ? 'bg-yellow-200' : 'hover:bg-blue-100'}`}>
-                                      {item.remark || '-'}
-                                    </div>
-                                  )}
+                                {columnOrder.map(colKey => renderCell(item, colKey))}
+                                <td className="p-2 text-center">
+                                  <button
+                                    onClick={() => handleDelete(item.id)}
+                                    className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition"
+                                    title="Delete"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
                                 </td>
                               </tr>
                               {/* Inquired rows */}
@@ -827,15 +1052,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   <td className="p-2 pl-6 text-gray-500">
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
                                   </td>
+                                  {columnOrder.map((colKey, colIdx) => {
+                                    if (colKey === 'description') {
+                                      return <td key={colKey} className="p-2 text-gray-500 text-xs"><span className="text-cyan-400">Inquired #{idx + 1}</span></td>;
+                                    } else if (colKey === 'cost') {
+                                      return <td key={colKey} className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>;
+                                    } else if (colKey === 'discount') {
+                                      return <td key={colKey} className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? String(inq.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}</td>;
+                                    } else if (colKey === 'supplier') {
+                                      return <td key={colKey} className="p-2 text-cyan-400 text-xs">{inq.supplier_name}</td>;
+                                    } else {
+                                      return <td key={colKey}></td>;
+                                    }
+                                  })}
                                   <td></td>
-                                  <td></td>
-                                  <td></td>
-                                  <td className="p-2 text-gray-500 text-xs"><span className="text-cyan-400">Inquired #{idx + 1}</span></td>
-                                  <td className="p-2 text-right text-cyan-400/70 text-xs">{formatPeso(inq.cost)}</td>
-                                  <td className="p-2 text-right text-orange-400/70 text-xs">{inq.discount ? String(inq.discount).split('/').map(d => `${d.trim()}%`).join('/') : '-'}</td>
-                                  <td></td>
-                                  <td className="p-2 text-cyan-400 text-xs">{inq.supplier_name}</td>
-                                  <td colSpan={4}></td>
                                 </tr>
                               ))}
                             </React.Fragment>

@@ -1,76 +1,53 @@
-[00:00:00.457] Server  LOG     ✓ Ready in 355ms
-[00:00:11.372] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:08.201] Server  LOG     ✓ Compiled in 40ms
-[00:01:22.359] Server  LOG     ✓ Compiled in 47ms
-[00:01:29.583] Server  LOG     ✓ Compiled in 55ms
-[00:01:48.506] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:05:20.775] Server  LOG     ✓ Compiled in 75ms
-[00:05:35.004] Server  LOG     ✓ Compiled in 42ms
-[00:06:34.511] Server  LOG     ✓ Compiled in 33ms
-[00:06:48.828] Server  LOG     ✓ Compiled in 29ms
-[00:07:09.534] Server  LOG     ✓ Compiled in 34ms
-[00:07:16.521] Server  LOG     ✓ Compiled in 30ms
-[00:07:25.926] Server  LOG     ✓ Compiled in 41ms
-[00:08:11.493] Server  LOG     ✓ Compiled in 21ms
-[00:08:19.779] Server  LOG     ✓ Compiled in 93ms
-[00:08:27.932] Server  LOG     ✓ Compiled in 34ms
-[00:08:35.006] Server  LOG     ✓ Compiled in 90ms
-[00:08:45.745] Server  LOG     ✓ Compiled in 89ms
-[00:10:05.736] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:10:06.515] Server  LOG     ✓ Compiled in 81ms
-[00:10:13.491] Server  LOG     ✓ Compiled in 29ms
-[00:10:21.037] Server  LOG     ✓ Compiled in 39ms
-[00:11:33.836] Server  LOG     ✓ Compiled in 54ms
-[00:12:15.110] Server  LOG     ✓ Compiled in 49ms
-[00:12:22.806] Server  LOG     ✓ Compiled in 52ms
-[00:12:39.259] Server  LOG     ✓ Compiled in 53ms
-[00:12:47.049] Server  LOG     ✓ Compiled in 78ms
-[00:13:04.053] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:13:14.066] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:13:21.831] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:13:47.632] Server  LOG     ✓ Compiled in 62ms
-[00:13:47.744] Browser ERROR   ./Desktop/uniwork-autotool/src/components/Dashboard.tsx:849:15
-Parsing ecmascript source code failed
-  847 |                 </div>
-  848 |               )}
-> 849 |             </>
-      |               ^
-  850 |           ) : (
-  851 |             /* Secretaries Tab - Admin Only */
-  852 |             <div>
-
-Expression expected
-
-Import traces:
-  Client Component Browser:
-    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component Browser]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component Browser]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component SSR]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component SSR]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
-[00:13:47.744] Browser ERROR   ./Desktop/uniwork-autotool/src/components/Dashboard.tsx:848:16
-Parsing ecmascript source code failed
-  846 |                   </div>
-  847 |                 </div>
-> 848 |               )}
-      |                ^
-  849 |             </>
-  850 |           ) : (
-  851 |             /* Secretaries Tab - Admin Only */
-
-Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
-
-Import traces:
-  Client Component Browser:
-    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component Browser]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component Browser]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component SSR]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component SSR]
-    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
-[00:14:29.512] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:00.462] Server  LOG     ✓ Ready in 359ms
+[00:00:00.922] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:51.209] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:52.312] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:52.312] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:52.597] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:53.412] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:53.960] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:54.245] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:00:54.391] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:02:43.896] Server  LOG     ✓ Compiled in 327ms
+[00:02:47.281] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:02:49.215] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
+[00:02:49.788] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:02:57.162] Server  LOG     ✓ Compiled in 39ms
+[00:03:05.700] Server  LOG     ✓ Compiled in 38ms
+[00:03:14.200] Server  LOG     ✓ Compiled in 22ms
+[00:03:16.158] Server  LOG     ✓ Compiled in 24ms
+[00:03:17.798] Server  LOG     ✓ Compiled in 22ms
+[00:03:19.223] Server  LOG     ✓ Compiled in 35ms
+[00:03:20.700] Server  LOG     ✓ Compiled in 43ms
+[00:03:22.363] Server  LOG     ✓ Compiled in 27ms
+[00:04:23.013] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:04:31.004] Server  LOG     ✓ Compiled in 20ms
+[00:04:38.643] Server  LOG     ✓ Compiled in 22ms
+[00:08:32.277] Server  LOG     ✓ Compiled in 45ms
+[00:08:40.329] Server  LOG     ✓ Compiled in 35ms
+[00:08:49.828] Server  LOG     ✓ Compiled in 28ms
+[00:09:16.152] Server  LOG     ✓ Compiled in 77ms
+[00:29:56.538] Server  LOG     ✓ Compiled in 42ms
+[00:30:00.580] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:31:13.911] Server  LOG     ✓ Compiled in 49ms
+[00:31:37.922] Server  LOG     ✓ Compiled in 37ms
+[00:31:46.623] Server  LOG     ✓ Compiled in 53ms
+[00:32:34.185] Server  LOG     ✓ Compiled in 41ms
+[00:32:41.884] Server  LOG     ✓ Compiled in 37ms
+[00:33:03.710] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:33:32.780] Server  LOG     ✓ Compiled in 30ms
+[00:33:55.928] Browser ERROR   Add item error: {"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'customer_name' column of 'items' in the schema cache"}
+[00:34:26.485] Server  LOG     ✓ Compiled in 28ms
+[00:35:31.425] Server  LOG     ✓ Compiled in 119ms
+[00:35:39.744] Server  LOG     ✓ Compiled in 34ms
+[00:35:40.035] Browser WARN    GoTrueClient@sb-fmfoasrdsgotytodyzwk-auth-token:1 (2.89.0) 2026-02-20T05:10:02.726Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:36:21.885] Browser ERROR   Supabase addItem error: {"code":"PGRST204","details":null,"fullError":{"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'customer_name' column of 'items' in the schema cache"},"hint":null,"message":"Could not find the 'customer_name' column of 'items' in the schema cache"}
+[00:36:21.885] Browser ERROR   Add item error - Full error object: {}
+[00:36:21.885] Browser ERROR   Add item error - Stringified: {}
+[00:38:16.945] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:40:20.006] Server  LOG     ✓ Compiled in 119ms
+[00:40:52.120] Server  LOG     ✓ Compiled in 47ms
+[00:41:39.026] Server  LOG     ✓ Compiled in 48ms
+[00:42:53.717] Server  LOG     ✓ Compiled in 47ms
+[00:44:05.397] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:44:43.685] Server  LOG     ✓ Compiled in 56ms

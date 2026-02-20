@@ -113,7 +113,17 @@ export async function getFilteredItems(filters: FilterOptions): Promise<Inventor
 
 export async function addItem(item: Omit<InventoryItem, "id" | "created_at">): Promise<InventoryItem> {
   const { data, error } = await supabase.from("items").insert([item]).select().single();
-  if (error) throw error;
+  if (error) {
+    console.error("Supabase addItem error:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      fullError: error,
+    });
+    throw new Error(error.message || error.details || "Failed to add item");
+  }
+  if (!data) throw new Error("No data returned from insert");
   return data;
 }
 
