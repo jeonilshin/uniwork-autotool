@@ -1,5 +1,76 @@
-[00:00:01.286] Server  LOG     ✓ Ready in 903ms
-[00:00:06.562] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:02.425] Server  LOG     ✓ Compiled in 88ms
-[00:01:19.935] Server  LOG     ✓ Compiled in 80ms
-[00:01:25.674] Server  LOG     ✓ Compiled in 76ms
+[00:00:00.457] Server  LOG     ✓ Ready in 355ms
+[00:00:11.372] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:08.201] Server  LOG     ✓ Compiled in 40ms
+[00:01:22.359] Server  LOG     ✓ Compiled in 47ms
+[00:01:29.583] Server  LOG     ✓ Compiled in 55ms
+[00:01:48.506] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:05:20.775] Server  LOG     ✓ Compiled in 75ms
+[00:05:35.004] Server  LOG     ✓ Compiled in 42ms
+[00:06:34.511] Server  LOG     ✓ Compiled in 33ms
+[00:06:48.828] Server  LOG     ✓ Compiled in 29ms
+[00:07:09.534] Server  LOG     ✓ Compiled in 34ms
+[00:07:16.521] Server  LOG     ✓ Compiled in 30ms
+[00:07:25.926] Server  LOG     ✓ Compiled in 41ms
+[00:08:11.493] Server  LOG     ✓ Compiled in 21ms
+[00:08:19.779] Server  LOG     ✓ Compiled in 93ms
+[00:08:27.932] Server  LOG     ✓ Compiled in 34ms
+[00:08:35.006] Server  LOG     ✓ Compiled in 90ms
+[00:08:45.745] Server  LOG     ✓ Compiled in 89ms
+[00:10:05.736] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:10:06.515] Server  LOG     ✓ Compiled in 81ms
+[00:10:13.491] Server  LOG     ✓ Compiled in 29ms
+[00:10:21.037] Server  LOG     ✓ Compiled in 39ms
+[00:11:33.836] Server  LOG     ✓ Compiled in 54ms
+[00:12:15.110] Server  LOG     ✓ Compiled in 49ms
+[00:12:22.806] Server  LOG     ✓ Compiled in 52ms
+[00:12:39.259] Server  LOG     ✓ Compiled in 53ms
+[00:12:47.049] Server  LOG     ✓ Compiled in 78ms
+[00:13:04.053] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:13:14.066] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:13:21.831] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:13:47.632] Server  LOG     ✓ Compiled in 62ms
+[00:13:47.744] Browser ERROR   ./Desktop/uniwork-autotool/src/components/Dashboard.tsx:849:15
+Parsing ecmascript source code failed
+  847 |                 </div>
+  848 |               )}
+> 849 |             </>
+      |               ^
+  850 |           ) : (
+  851 |             /* Secretaries Tab - Admin Only */
+  852 |             <div>
+
+Expression expected
+
+Import traces:
+  Client Component Browser:
+    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component Browser]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component Browser]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component SSR]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component SSR]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
+[00:13:47.744] Browser ERROR   ./Desktop/uniwork-autotool/src/components/Dashboard.tsx:848:16
+Parsing ecmascript source code failed
+  846 |                   </div>
+  847 |                 </div>
+> 848 |               )}
+      |                ^
+  849 |             </>
+  850 |           ) : (
+  851 |             /* Secretaries Tab - Admin Only */
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component Browser]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component Browser]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./Desktop/uniwork-autotool/src/components/Dashboard.tsx [Client Component SSR]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Client Component SSR]
+    ./Desktop/uniwork-autotool/src/app/page.tsx [Server Component]
+[00:14:29.512] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold

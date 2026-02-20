@@ -20,7 +20,7 @@ export interface UserProfile {
 
 export interface InquiredSupplier {
   supplier_name: string;
-  contact: string;
+  supplier_contact: string;
   cost: number;
   discount: string | null;
 }
@@ -29,17 +29,18 @@ export interface InventoryItem {
   id: string;
   image_url: string | null;
   brand: string;
-  unit: string;
+  part_number: string | null;
   qty: number;
-  description: string;
+  unit: string;
+  particular: string;
   cost: number;
-  vat_type: VatType;
   discount: string | null;
-  sale: number;
+  vat_type: VatType;
   supplier_name: string;
-  contact: string;
-  customer: string;
+  supplier_contact: string;
+  customer_name: string;
   customer_contact: string | null;
+  sale: number;
   freight_cost: number;
   freight_type: FreightType;
   status: ItemStatus;
@@ -47,6 +48,7 @@ export interface InventoryItem {
   inquired_list: InquiredSupplier[] | null;
   delivered_at: string | null;
   payment_collected: boolean;
+  remark: string | null;
   created_at: string;
   user_id: string;
 }
@@ -101,7 +103,7 @@ export async function getFilteredItems(filters: FilterOptions): Promise<Inventor
   if (filters.minCost !== undefined) query = query.gte("cost", filters.minCost);
   if (filters.maxCost !== undefined) query = query.lte("cost", filters.maxCost);
   if (filters.searchQuery) {
-    query = query.or(`brand.ilike.%${filters.searchQuery}%,description.ilike.%${filters.searchQuery}%,supplier_name.ilike.%${filters.searchQuery}%,customer.ilike.%${filters.searchQuery}%`);
+    query = query.or(`brand.ilike.%${filters.searchQuery}%,part_number.ilike.%${filters.searchQuery}%,particular.ilike.%${filters.searchQuery}%,supplier_name.ilike.%${filters.searchQuery}%,customer_name.ilike.%${filters.searchQuery}%`);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });

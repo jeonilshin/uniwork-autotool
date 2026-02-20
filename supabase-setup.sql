@@ -19,17 +19,17 @@ CREATE TABLE items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   image_url TEXT,
   brand TEXT NOT NULL DEFAULT '',
-  unit TEXT NOT NULL,
   qty INTEGER NOT NULL DEFAULT 1,
-  description TEXT NOT NULL,
+  unit TEXT NOT NULL,
+  particular TEXT NOT NULL,
   cost DECIMAL(12,2) NOT NULL,
-  vat_type TEXT NOT NULL DEFAULT 'non_vat' CHECK (vat_type IN ('vat_inclusive', 'non_vat')),
   discount TEXT,
-  sale DECIMAL(12,2) NOT NULL,
+  vat_type TEXT NOT NULL DEFAULT 'non_vat' CHECK (vat_type IN ('vat_inclusive', 'non_vat')),
   supplier_name TEXT NOT NULL,
-  contact TEXT,
-  customer TEXT NOT NULL,
+  supplier_contact TEXT,
+  customer_name TEXT NOT NULL,
   customer_contact TEXT,
+  sale DECIMAL(12,2) NOT NULL,
   freight_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
   freight_type TEXT NOT NULL DEFAULT 'sea' CHECK (freight_type IN ('sea', 'land', 'air')),
   status TEXT NOT NULL DEFAULT 'inquired' CHECK (status IN ('inquired', 'bought', 'arrived', 'delivered')),
@@ -41,8 +41,10 @@ CREATE TABLE items (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
--- If you already have the items table and need to add customer_contact column, run this:
--- ALTER TABLE items ADD COLUMN IF NOT EXISTS customer_contact TEXT;
+-- Migration commands if you already have the items table:
+-- ALTER TABLE items RENAME COLUMN description TO particular;
+-- ALTER TABLE items RENAME COLUMN contact TO supplier_contact;
+-- ALTER TABLE items RENAME COLUMN customer TO customer_name;
 
 -- Enable Row Level Security
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
@@ -62,7 +64,7 @@ CREATE POLICY "Authenticated users can delete items" ON items FOR DELETE USING (
 -- Create indexes for better performance
 CREATE INDEX idx_items_status ON items(status);
 CREATE INDEX idx_items_brand ON items(brand);
-CREATE INDEX idx_items_customer ON items(customer);
+CREATE INDEX idx_items_customer_name ON items(customer_name);
 CREATE INDEX idx_items_supplier ON items(supplier_name);
 CREATE INDEX idx_items_created_at ON items(created_at DESC);
 CREATE INDEX idx_items_is_inquired ON items(is_inquired);
