@@ -1,53 +1,55 @@
-[00:00:00.462] Server  LOG     ✓ Ready in 359ms
-[00:00:00.922] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:51.209] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:52.312] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:52.312] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:52.597] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:53.412] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:53.960] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:54.245] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:00:54.391] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:02:43.896] Server  LOG     ✓ Compiled in 327ms
-[00:02:47.281] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:02:49.215] Browser ERROR   Failed to fetch items: {"code":"42703","details":null,"hint":null,"message":"column items.customer_name does not exist"}
-[00:02:49.788] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:02:57.162] Server  LOG     ✓ Compiled in 39ms
-[00:03:05.700] Server  LOG     ✓ Compiled in 38ms
-[00:03:14.200] Server  LOG     ✓ Compiled in 22ms
-[00:03:16.158] Server  LOG     ✓ Compiled in 24ms
-[00:03:17.798] Server  LOG     ✓ Compiled in 22ms
-[00:03:19.223] Server  LOG     ✓ Compiled in 35ms
-[00:03:20.700] Server  LOG     ✓ Compiled in 43ms
-[00:03:22.363] Server  LOG     ✓ Compiled in 27ms
-[00:04:23.013] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:04:31.004] Server  LOG     ✓ Compiled in 20ms
-[00:04:38.643] Server  LOG     ✓ Compiled in 22ms
-[00:08:32.277] Server  LOG     ✓ Compiled in 45ms
-[00:08:40.329] Server  LOG     ✓ Compiled in 35ms
-[00:08:49.828] Server  LOG     ✓ Compiled in 28ms
-[00:09:16.152] Server  LOG     ✓ Compiled in 77ms
-[00:29:56.538] Server  LOG     ✓ Compiled in 42ms
-[00:30:00.580] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:31:13.911] Server  LOG     ✓ Compiled in 49ms
-[00:31:37.922] Server  LOG     ✓ Compiled in 37ms
-[00:31:46.623] Server  LOG     ✓ Compiled in 53ms
-[00:32:34.185] Server  LOG     ✓ Compiled in 41ms
-[00:32:41.884] Server  LOG     ✓ Compiled in 37ms
-[00:33:03.710] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:33:32.780] Server  LOG     ✓ Compiled in 30ms
-[00:33:55.928] Browser ERROR   Add item error: {"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'customer_name' column of 'items' in the schema cache"}
-[00:34:26.485] Server  LOG     ✓ Compiled in 28ms
-[00:35:31.425] Server  LOG     ✓ Compiled in 119ms
-[00:35:39.744] Server  LOG     ✓ Compiled in 34ms
-[00:35:40.035] Browser WARN    GoTrueClient@sb-fmfoasrdsgotytodyzwk-auth-token:1 (2.89.0) 2026-02-20T05:10:02.726Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
-[00:36:21.885] Browser ERROR   Supabase addItem error: {"code":"PGRST204","details":null,"fullError":{"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'customer_name' column of 'items' in the schema cache"},"hint":null,"message":"Could not find the 'customer_name' column of 'items' in the schema cache"}
-[00:36:21.885] Browser ERROR   Add item error - Full error object: {}
-[00:36:21.885] Browser ERROR   Add item error - Stringified: {}
-[00:38:16.945] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:40:20.006] Server  LOG     ✓ Compiled in 119ms
-[00:40:52.120] Server  LOG     ✓ Compiled in 47ms
-[00:41:39.026] Server  LOG     ✓ Compiled in 48ms
-[00:42:53.717] Server  LOG     ✓ Compiled in 47ms
-[00:44:05.397] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:44:43.685] Server  LOG     ✓ Compiled in 56ms
+[00:00:00.644] Server  LOG     ✓ Ready in 473ms
+[00:00:02.400] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:08.415] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:55.353] Server  LOG     ✓ Compiled in 45ms
+[00:02:14.122] Server  LOG     ✓ Compiled in 51ms
+[00:02:50.083] Server  LOG     ✓ Compiled in 107ms
+[00:03:05.641] Server  LOG     ✓ Compiled in 54ms
+[00:04:47.117] Server  LOG     ✓ Compiled in 57ms
+[00:05:00.246] Server  LOG     ✓ Compiled in 90ms
+[00:05:22.203] Server  LOG     ✓ Compiled in 73ms
+[00:05:42.267] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:06:41.284] Server  LOG     ✓ Compiled in 83ms
+[00:06:41.445] Server  LOG     ✓ Compiled in 112ms
+[00:06:41.796] Server  LOG     ✓ Compiled in 130ms
+[00:06:41.942] Server  LOG     ✓ Compiled in 81ms
+[00:06:42.018] Server  LOG     ✓ Compiled in 61ms
+[00:08:20.366] Server  LOG     ✓ Compiled in 68ms
+[00:08:40.609] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:08:40.609] Browser ERROR   Error importing row 19: {}
+[00:08:55.430] Server  LOG     ✓ Compiled in 52ms
+[00:09:08.578] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:09:08.578] Browser ERROR   Error importing row 110: {}
+[00:09:08.870] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:09:08.870] Browser ERROR   Error importing row 111: {}
+[00:09:53.257] Server  LOG     ✓ Compiled in 49ms
+[00:10:14.776] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"cost\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"cost\" of relation \"items\" violates not-null constraint"}
+[00:10:14.776] Browser ERROR   Error importing row 320: {}
+[00:10:18.357] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:10:18.357] Browser ERROR   Error importing row 332: {}
+[00:10:22.268] Server  LOG     ✓ Compiled in 61ms
+[00:10:41.982] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:10:41.982] Browser ERROR   Error importing row 403: {}
+[00:10:58.408] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"sale\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"sale\" of relation \"items\" violates not-null constraint"}
+[00:10:58.408] Browser ERROR   Error importing row 456: {}
+[00:10:58.681] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"sale\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"sale\" of relation \"items\" violates not-null constraint"}
+[00:10:58.681] Browser ERROR   Error importing row 457: {}
+[00:11:05.487] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:11:05.487] Browser ERROR   Error importing row 481: {}
+[00:11:05.750] Browser ERROR   Supabase addItem error: {"code":"23502","details":null,"fullError":{"code":"23502","details":null,"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"},"hint":null,"message":"null value in column \"qty\" of relation \"items\" violates not-null constraint"}
+[00:11:05.750] Browser ERROR   Error importing row 482: {}
+[00:11:21.872] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:12:19.941] Server  LOG     ✓ Compiled in 55ms
+[00:12:42.024] Server  LOG     ✓ Compiled in 54ms
+[00:13:13.246] Server  LOG     ✓ Compiled in 66ms
+[00:13:47.838] Server  LOG     ✓ Compiled in 61ms
+[00:14:15.058] Server  LOG     ✓ Compiled in 65ms
+[00:14:41.231] Server  LOG     ✓ Compiled in 50ms
+[00:24:54.064] Server  LOG     ✓ Compiled in 88ms
+[00:26:36.087] Server  LOG     ✓ Compiled in 87ms
+[00:27:15.279] Server  LOG     ✓ Compiled in 104ms
+[00:30:43.155] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:30:49.735] Browser ERROR   Received NaN for the `%s` attribute. If this is expected, cast the value to a string. children
+[00:42:32.777] Server  LOG     ✓ Compiled in 117ms
+[00:48:21.313] Server  LOG     ✓ Compiled in 77ms
+[00:49:08.601] Server  LOG     ✓ Compiled in 525ms

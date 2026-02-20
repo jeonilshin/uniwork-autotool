@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { signOut, getUser, getUserRole } from '@/lib/auth';
 import {
   supabase, getFilteredItems, addItem, deleteItem, uploadImage, updateItemStatus, collectPayment, updateItem,
@@ -150,9 +151,17 @@ const NotificationBell = ({ items, onSelectItem }: { items: InventoryItem[]; onS
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'inventory' | 'secretaries'>('inventory');
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [secretaries, setSecretaries] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [showImportPreview, setShowImportPreview] = useState(false);
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
+  const [selectedInquiryItem, setSelectedInquiryItem] = useState<InventoryItem | null>(null);
   const [showSecretaryModal, setShowSecretaryModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -525,8 +534,55 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
-    try { await deleteItem(id); setItems(items.filter(item => item.id !== id)); }
+    try { 
+      await deleteItem(id); 
+      setItems(items.filter(item => item.id !== id)); 
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
     catch (error) { console.error('Failed to delete item:', error); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) {
+      alert('Please select items to delete');
+      return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedItems.size} item(s)?`)) return;
+    
+    try {
+      const deletePromises = Array.from(selectedItems).map(id => deleteItem(id));
+      await Promise.all(deletePromises);
+      setItems(items.filter(item => !selectedItems.has(item.id)));
+      setSelectedItems(new Set());
+    } catch (error) {
+      console.error('Failed to delete items:', error);
+      alert('Failed to delete some items. Please try again.');
+    }
+  };
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === items.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(items.map(item => item.id)));
+    }
   };
 
   const handleDeleteSecretary = async (id: string) => {
@@ -560,11 +616,337 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  // Parse date from CSV (handles various formats like "13", "April", "Apr-23", "2023")
+  const parseCSVDate = (dateStr: string, currentYear?: string, currentMonth?: string, currentDay?: string): string => {
+    if (!dateStr || dateStr.trim() === '') {
+      // Use current context if available
+      if (currentYear && currentMonth && currentDay) {
+        return new Date(`${currentYear}-${currentMonth}-${currentDay}`).toISOString();
+      }
+      return new Date().toISOString();
+    }
+    
+    const cleaned = dateStr.trim();
+    
+    // Check if it's a year (4 digits)
+    if (/^\d{4}$/.test(cleaned)) {
+      return new Date(`${cleaned}-01-01`).toISOString();
+    }
+    
+    // Check if it's a month name (April, Apr, etc.) or month-year (Apr-23)
+    const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    const monthAbbr = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const lowerCleaned = cleaned.toLowerCase();
+    
+    let monthIndex = monthNames.findIndex(m => lowerCleaned.includes(m));
+    if (monthIndex === -1) {
+      monthIndex = monthAbbr.findIndex(m => lowerCleaned.includes(m));
+    }
+    
+    if (monthIndex !== -1) {
+      // Check if there's a year in the string (e.g., "Apr-23")
+      const yearMatch = cleaned.match(/[-\s](\d{2,4})$/);
+      let year = currentYear || new Date().getFullYear().toString();
+      if (yearMatch) {
+        const yearStr = yearMatch[1];
+        year = yearStr.length === 2 ? `20${yearStr}` : yearStr;
+      }
+      return new Date(`${year}-${String(monthIndex + 1).padStart(2, '0')}-01`).toISOString();
+    }
+    
+    // Check if it's a day number (1-31)
+    if (/^\d{1,2}$/.test(cleaned)) {
+      const day = parseInt(cleaned);
+      if (day >= 1 && day <= 31 && currentYear && currentMonth) {
+        return new Date(`${currentYear}-${currentMonth}-${String(day).padStart(2, '0')}`).toISOString();
+      }
+    }
+    
+    // Try standard date parsing
+    const parsed = new Date(cleaned);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+    
+    return new Date().toISOString();
+  };
+
+  // Import handler - parse CSV/Excel and show preview
+  const handleImport = async () => {
+    if (!importFile) {
+      alert('Please select a file to import');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      let rows: any[][] = [];
+      
+      // Check file type and parse accordingly
+      if (importFile.name.endsWith('.csv')) {
+        // Parse CSV
+        const text = await importFile.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          alert('File is empty or has no data rows');
+          setImporting(false);
+          return;
+        }
+
+        rows = lines.map(line => 
+          line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/^"|"$/g, ''))
+        );
+      } else if (importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls')) {
+        // Parse Excel
+        const arrayBuffer = await importFile.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        
+        // Get first sheet
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert to array of arrays
+        rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as any[][];
+        
+        if (rows.length < 2) {
+          alert('File is empty or has no data rows');
+          setImporting(false);
+          return;
+        }
+      } else {
+        alert('Unsupported file format. Please use CSV or Excel files.');
+        setImporting(false);
+        return;
+      }
+
+      // Parse header (first row)
+      const header = rows[0].map((h: any) => String(h || '').trim().toLowerCase());
+      
+      // Map CSV columns to database fields
+      const columnMap: Record<string, string> = {
+        'date': 'created_at',
+        'brand': 'brand',
+        'part number': 'part_number',
+        'part_number': 'part_number',
+        'description': 'particular',
+        'particular': 'particular',
+        'cost': 'cost',
+        'unit': 'unit',
+        'discount': 'discount',
+        'discount %': 'discount',
+        'supplier': 'supplier_name',
+        'supplier_name': 'supplier_name',
+        'sale': 'sale',
+        'customer': 'customer_name',
+        'customer_name': 'customer_name',
+        'qty': 'qty',
+        'quantity': 'qty',
+        'remark': 'remark',
+        'remarks': 'remark',
+      };
+
+      const previewData: any[] = [];
+      let currentYear = '';
+      let currentMonth = '';
+      let currentDay = '';
+
+      // Parse data rows (skip header)
+      for (let i = 1; i < rows.length; i++) {
+        try {
+          const values = rows[i].map((v: any) => String(v || '').trim());
+          const row: any = {};
+
+          header.forEach((col, idx) => {
+            const dbField = columnMap[col];
+            if (dbField && values[idx]) {
+              row[dbField] = values[idx];
+            }
+          });
+
+          // Handle date parsing with context
+          if (row.created_at) {
+            const dateStr = row.created_at.trim();
+            
+            // Check if it's a year (4 digits only, no other data)
+            if (/^\d{4}$/.test(dateStr) && !row.brand && !row.particular && !row.cost) {
+              currentYear = dateStr;
+              currentMonth = ''; // Reset month when year changes
+              currentDay = '';
+              continue; // Skip this row, it's just a year marker
+            }
+            
+            // Check if it's a month name or month-year (e.g., "April", "Apr-23")
+            const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+            const monthAbbr = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+            const lowerDate = dateStr.toLowerCase();
+            
+            let monthIndex = monthNames.findIndex(m => lowerDate.includes(m));
+            if (monthIndex === -1) {
+              monthIndex = monthAbbr.findIndex(m => lowerDate.includes(m));
+            }
+            
+            if (monthIndex !== -1 && !row.brand && !row.particular && !row.cost) {
+              currentMonth = String(monthIndex + 1).padStart(2, '0');
+              currentDay = ''; // Reset day when month changes
+              
+              // Check if there's a year in the month string (e.g., "Apr-23")
+              const yearMatch = dateStr.match(/[-\s](\d{2,4})$/);
+              if (yearMatch) {
+                const yearStr = yearMatch[1];
+                currentYear = yearStr.length === 2 ? `20${yearStr}` : yearStr;
+              }
+              
+              continue; // Skip this row, it's just a month marker
+            }
+            
+            // Check if it's a day number (1-31)
+            if (/^\d{1,2}$/.test(dateStr)) {
+              const day = parseInt(dateStr);
+              if (day >= 1 && day <= 31) {
+                currentDay = String(day).padStart(2, '0');
+                
+                // If this row has data, use the current context
+                if (row.brand || row.particular || row.cost) {
+                  if (currentYear && currentMonth && currentDay) {
+                    row.created_at = new Date(`${currentYear}-${currentMonth}-${currentDay}`).toISOString();
+                  } else {
+                    row.created_at = new Date().toISOString();
+                  }
+                } else {
+                  // Just a day marker, skip
+                  continue;
+                }
+              }
+            } else {
+              // Not a simple day number, try to parse it
+              row.created_at = parseCSVDate(dateStr, currentYear, currentMonth, currentDay);
+            }
+          } else {
+            // No date in this row, use current context
+            if (currentYear && currentMonth && currentDay) {
+              row.created_at = new Date(`${currentYear}-${currentMonth}-${currentDay}`).toISOString();
+            } else {
+              row.created_at = new Date().toISOString();
+            }
+          }
+
+          // Skip rows without actual data
+          if (!row.brand && !row.particular && !row.cost && !row.sale) continue;
+
+          // Prepare preview item
+          const previewItem = {
+            brand: row.brand || '',
+            part_number: row.part_number || null,
+            qty: row.qty ? parseInt(String(row.qty).replace(/[^\d]/g, '')) || 1 : 1,
+            unit: row.unit || '-',
+            particular: row.particular || '-',
+            cost: row.cost ? parseFloat(String(row.cost).replace(/[₱,\s]/g, '')) || 0 : 0,
+            discount: row.discount || null,
+            supplier_name: row.supplier_name || '-',
+            sale: row.sale ? parseFloat(String(row.sale).replace(/[₱,\s]/g, '')) || 0 : 0,
+            customer_name: row.customer_name || '-',
+            remark: row.remark || null,
+            created_at: row.created_at,
+          };
+
+          previewData.push(previewItem);
+        } catch (error) {
+          console.error(`Error parsing row ${i}:`, error);
+        }
+      }
+
+      if (previewData.length === 0) {
+        alert('No valid data rows found in the file. Please check the format.');
+        setImporting(false);
+        return;
+      }
+
+      // Sort by date (newest first)
+      previewData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setImportPreview(previewData);
+      setShowImportPreview(true);
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Failed to parse file. Please check the file format and try again.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Confirm import - actually upload to database
+  const handleConfirmImport = async () => {
+    if (importPreview.length === 0) return;
+
+    setImporting(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      const importedItems: any[] = [];
+
+      for (const previewItem of importPreview) {
+        try {
+          const newItem = await addItem({
+            image_url: null,
+            brand: previewItem.brand,
+            part_number: previewItem.part_number,
+            qty: previewItem.qty,
+            unit: previewItem.unit,
+            particular: previewItem.particular,
+            cost: previewItem.cost,
+            discount: previewItem.discount,
+            vat_type: 'non_vat',
+            supplier_name: previewItem.supplier_name,
+            supplier_contact: '',
+            customer_name: previewItem.customer_name,
+            customer_contact: null,
+            sale: previewItem.sale,
+            freight_cost: 0,
+            freight_type: 'sea',
+            status: 'inquired',
+            is_inquired: false,
+            inquired_list: null,
+            delivered_at: null,
+            payment_collected: false,
+            remark: previewItem.remark,
+            user_id: userId,
+          });
+
+          importedItems.push(newItem);
+          successCount++;
+        } catch (error) {
+          console.error('Error importing item:', error);
+          errorCount++;
+        }
+      }
+
+      // Add imported items and sort by date
+      const allItems = [...importedItems, ...items].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setItems(allItems);
+
+      alert(`Import complete!\nSuccessfully imported: ${successCount}\nFailed: ${errorCount}`);
+      setShowImportModal(false);
+      setShowImportPreview(false);
+      setImportPreview([]);
+      setImportFile(null);
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Failed to import items. Please try again.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // Inline editing handlers
   const startEdit = (itemId: string, field: string, currentValue: any) => {
     setEditingItemId(itemId);
     setEditingField(field);
-    setEditValue(String(currentValue || ''));
+    // Don't show "-" in edit mode, show empty string instead
+    const valueToEdit = (currentValue === '-' || currentValue === null || currentValue === undefined) ? '' : String(currentValue);
+    setEditValue(valueToEdit);
   };
 
   const saveEdit = async () => {
@@ -827,6 +1209,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 Secretaries ({secretaries.length})
               </button>
             )}
+            <button 
+              onClick={() => setShowImportModal(true)}
+              className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition flex items-center gap-2 ml-auto"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">Import</span>
+            </button>
           </div>
 
           {activeTab === 'inventory' ? (
@@ -876,6 +1267,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       </svg>
                       <span className="hidden sm:inline">Reset Layout</span>
                     </button>
+                    {selectedItems.size > 0 && (
+                      <button 
+                        onClick={handleBulkDelete}
+                        className="px-6 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition flex items-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span className="hidden sm:inline">Delete ({selectedItems.size})</span>
+                      </button>
+                    )}
                     <button onClick={async () => {
                       try {
                         const item = await addItem({
@@ -984,6 +1386,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       <table className="w-full text-sm" style={{borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1600px'}}>
                       <thead>
                         <tr className="border-b-2 border-gray-400 bg-gray-100">
+                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12">
+                            <input
+                              type="checkbox"
+                              checked={items.length > 0 && selectedItems.size === items.length}
+                              onChange={toggleSelectAll}
+                              className="w-4 h-4 cursor-pointer"
+                              title="Select All"
+                            />
+                          </th>
                           <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12">#</th>
                           <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-10">
                             <button onClick={toggleAllRows} className="flex items-center justify-center gap-1 hover:text-gray-900 transition mx-auto">
@@ -1024,11 +1435,34 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           return (
                             <React.Fragment key={item.id}>
                               <tr className="border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50">
+                                <td className="p-2 text-center border-r border-gray-200 w-12">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedItems.has(item.id)}
+                                    onChange={() => toggleSelectItem(item.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-4 h-4 cursor-pointer"
+                                  />
+                                </td>
                                 <td className="p-2 text-center text-gray-600 font-medium border-r border-gray-200 w-12">{index + 1}</td>
                                 <td className="p-2 border-r border-gray-200 w-10">
-                                  {hasInquired && (
+                                  {hasInquired ? (
                                     <button onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }} className="text-gray-600 hover:text-gray-900 transition">
                                       <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                  ) : (
+                                    <button 
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setSelectedInquiryItem(item); 
+                                        setShowInquiryModal(true); 
+                                      }} 
+                                      className="text-blue-500 hover:text-blue-700 transition"
+                                      title="Add Inquiry"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                      </svg>
                                     </button>
                                   )}
                                 </td>
@@ -1047,7 +1481,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               </tr>
                               {/* Inquired rows */}
                               {hasInquired && isExpanded && item.inquired_list!.map((inq, idx) => (
-                                <tr key={`${item.id}-inq-${idx}`} className="bg-cyan-500/5 border-b border-gray-100">
+                                <tr 
+                                  key={`${item.id}-inq-${idx}`} 
+                                  className="bg-cyan-500/5 border-b border-gray-100 cursor-pointer hover:bg-cyan-500/10 transition"
+                                  onClick={() => {
+                                    setSelectedInquiryItem(item);
+                                    setShowInquiryModal(true);
+                                  }}
+                                >
+                                  <td></td>
                                   <td></td>
                                   <td className="p-2 pl-6 text-gray-500">
                                     {idx === item.inquired_list!.length - 1 ? '└' : '├'}
@@ -1117,6 +1559,356 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         {showAddModal && <AddItemModal userId={userId} items={items} onClose={() => setShowAddModal(false)} onAdd={(item) => { setItems([item, ...items]); setShowAddModal(false); }} />}
         {showSecretaryModal && <AddSecretaryModal adminId={userId} onClose={() => setShowSecretaryModal(false)} onAdd={(sec) => { setSecretaries([sec, ...secretaries]); setShowSecretaryModal(false); }} />}
         
+        {/* Import Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {showImportPreview ? 'Preview Import Data' : 'Import Items from CSV/Excel'}
+                </h2>
+                <button onClick={() => { 
+                  setShowImportModal(false); 
+                  setShowImportPreview(false); 
+                  setImportPreview([]);
+                  setImportFile(null); 
+                }} className="text-gray-600 hover:text-gray-900 transition">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {!showImportPreview ? (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <h3 className="font-semibold text-blue-900 mb-2">CSV Format Requirements:</h3>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• First row must contain column headers</li>
+                        <li>• Supported columns: Date, Brand, Part Number, Description, Cost, Unit, Discount %, Supplier, Sale, Customer, Qty, Remark</li>
+                        <li>• Column names are case-insensitive</li>
+                        <li>• Missing columns will use default values</li>
+                        <li>• Items will be sorted by date after import</li>
+                      </ul>
+                    </div>
+
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                        id="import-file"
+                      />
+                      <label htmlFor="import-file" className="cursor-pointer">
+                        <div className="flex flex-col items-center gap-3">
+                          <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <div>
+                            <p className="text-lg font-medium text-gray-900">
+                              {importFile ? importFile.name : 'Click to select file'}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">CSV or Excel files (.csv, .xlsx, .xls)</p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                      <p className="text-green-900 font-medium">
+                        Found {importPreview.length} items to import. Review the data below and click "Confirm Import" to proceed.
+                      </p>
+                    </div>
+
+                    <div className="border border-gray-300 rounded-xl overflow-hidden">
+                      <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                        <table className="w-full text-sm" style={{borderCollapse: 'collapse'}}>
+                          <thead className="sticky top-0 bg-gray-100 border-b-2 border-gray-400">
+                            <tr>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">#</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Date</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Brand</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Part Number</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Description</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Cost</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Unit</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Discount</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Supplier</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Sale</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Customer</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Qty</th>
+                              <th className="text-center p-2 text-gray-700 font-semibold">Remark</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importPreview.map((item, index) => (
+                              <tr key={index} className="border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50">
+                                <td className="p-2 text-center text-gray-600 border-r border-gray-200">{index + 1}</td>
+                                <td className="p-2 text-center text-gray-600 text-xs border-r border-gray-200">{formatDate(item.created_at)}</td>
+                                <td className="p-2 text-gray-900 border-r border-gray-200">{item.brand || '-'}</td>
+                                <td className="p-2 text-gray-900 border-r border-gray-200">{item.part_number || '-'}</td>
+                                <td className="p-2 text-gray-900 border-r border-gray-200">{item.particular || '-'}</td>
+                                <td className="p-2 text-right text-red-600 font-medium border-r border-gray-200">{formatPeso(item.cost)}</td>
+                                <td className="p-2 text-gray-900 border-r border-gray-200">{item.unit}</td>
+                                <td className="p-2 text-right text-orange-600 border-r border-gray-200">{item.discount || '-'}</td>
+                                <td className="p-2 text-gray-900 border-r border-gray-200">{item.supplier_name}</td>
+                                <td className="p-2 text-right text-green-600 font-medium border-r border-gray-200">{formatPeso(item.sale)}</td>
+                                <td className="p-2 text-gray-900 border-r border-gray-200">{item.customer_name}</td>
+                                <td className="p-2 text-center text-gray-900 border-r border-gray-200">{item.qty}</td>
+                                <td className="p-2 text-gray-900">{item.remark || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-gray-200">
+                <div className="flex gap-3">
+                  {!showImportPreview ? (
+                    <>
+                      <button
+                        onClick={() => { setShowImportModal(false); setImportFile(null); }}
+                        className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleImport}
+                        disabled={!importFile || importing}
+                        className="flex-1 px-6 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {importing ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Parsing...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Preview
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => { 
+                          setShowImportPreview(false); 
+                          setImportPreview([]);
+                        }}
+                        className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={handleConfirmImport}
+                        disabled={importing}
+                        className="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {importing ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Importing...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Confirm Import ({importPreview.length} items)
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Inquiry Management Modal */}
+        {showInquiryModal && selectedInquiryItem && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Manage Inquiries</h2>
+                <button 
+                  onClick={() => { 
+                    setShowInquiryModal(false); 
+                    setSelectedInquiryItem(null); 
+                  }} 
+                  className="text-gray-600 hover:text-gray-900 transition"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Original Item Info */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-3">Original Item</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Brand</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.brand || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Part Number</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.part_number || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Description</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.particular || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Unit</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.unit}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Cost</p>
+                      <p className="font-medium text-red-600">{formatPeso(selectedInquiryItem.cost)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Discount</p>
+                      <p className="font-medium text-orange-600">{selectedInquiryItem.discount || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Supplier</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.supplier_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Sale</p>
+                      <p className="font-medium text-green-600">{formatPeso(selectedInquiryItem.sale)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Customer</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.customer_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Quantity</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.qty}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Remark</p>
+                      <p className="font-medium text-gray-900">{selectedInquiryItem.remark || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inquired List */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900">Inquired Suppliers</h3>
+                    <button
+                      onClick={async () => {
+                        const newInquiry: InquiredSupplier = {
+                          supplier_name: '',
+                          supplier_contact: '',
+                          cost: 0,
+                          discount: null,
+                        };
+                        const currentList = selectedInquiryItem.inquired_list || [];
+                        const updatedList = [...currentList, newInquiry];
+                        
+                        try {
+                          const updated = await updateItem(selectedInquiryItem.id, {
+                            is_inquired: true,
+                            inquired_list: updatedList,
+                          });
+                          setItems(items.map(item => item.id === selectedInquiryItem.id ? updated : item));
+                          setSelectedInquiryItem(updated);
+                        } catch (error) {
+                          console.error('Failed to add inquiry:', error);
+                          alert('Failed to add inquiry');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Inquiry
+                    </button>
+                  </div>
+
+                  {(!selectedInquiryItem.inquired_list || selectedInquiryItem.inquired_list.length === 0) ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-gray-500">No inquiries yet. Click "Add Inquiry" to start.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedInquiryItem.inquired_list.map((inq, idx) => (
+                        <InquiryCard
+                          key={idx}
+                          inquiry={inq}
+                          index={idx}
+                          onUpdate={async (updatedInquiry) => {
+                            const updatedList = [...selectedInquiryItem.inquired_list!];
+                            updatedList[idx] = updatedInquiry;
+                            
+                            try {
+                              const updated = await updateItem(selectedInquiryItem.id, {
+                                inquired_list: updatedList,
+                              });
+                              setItems(items.map(item => item.id === selectedInquiryItem.id ? updated : item));
+                              setSelectedInquiryItem(updated);
+                            } catch (error) {
+                              console.error('Failed to update inquiry:', error);
+                              alert('Failed to update inquiry');
+                            }
+                          }}
+                          onDelete={async () => {
+                            if (!confirm('Delete this inquiry?')) return;
+                            
+                            const updatedList = selectedInquiryItem.inquired_list!.filter((_, i) => i !== idx);
+                            
+                            try {
+                              const updated = await updateItem(selectedInquiryItem.id, {
+                                is_inquired: updatedList.length > 0,
+                                inquired_list: updatedList.length > 0 ? updatedList : null,
+                              });
+                              setItems(items.map(item => item.id === selectedInquiryItem.id ? updated : item));
+                              setSelectedInquiryItem(updated);
+                            } catch (error) {
+                              console.error('Failed to delete inquiry:', error);
+                              alert('Failed to delete inquiry');
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+                <button
+                  onClick={() => {
+                    setShowInquiryModal(false);
+                    setSelectedInquiryItem(null);
+                  }}
+                  className="w-full px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Find Dialog */}
         {showFindDialog && (
           <div className="fixed top-20 right-8 bg-white rounded-xl shadow-2xl border border-gray-300 p-4 z-50 w-80">
@@ -1507,6 +2299,146 @@ function AddItemModal({ userId, items, onClose, onAdd }: { userId: string; items
   );
 }
 
+
+// Inquiry Card Component
+function InquiryCard({ 
+  inquiry, 
+  index, 
+  onUpdate, 
+  onDelete 
+}: { 
+  inquiry: InquiredSupplier; 
+  index: number; 
+  onUpdate: (inquiry: InquiredSupplier) => void; 
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState(inquiry);
+
+  const handleSave = () => {
+    onUpdate(formData);
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setFormData(inquiry);
+    setEditing(false);
+  };
+
+  return (
+    <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4">
+      <div className="flex items-start justify-between mb-3">
+        <h4 className="font-semibold text-cyan-900">Inquiry #{index + 1}</h4>
+        <div className="flex gap-2">
+          {!editing ? (
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded transition"
+                title="Edit"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-100 rounded transition"
+                title="Delete"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-100 rounded transition"
+                title="Save"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={handleCancel}
+                className="p-1.5 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded transition"
+                title="Cancel"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Supplier Name</label>
+            <input
+              type="text"
+              value={formData.supplier_name}
+              onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Supplier Contact</label>
+            <input
+              type="text"
+              value={formData.supplier_contact}
+              onChange={(e) => setFormData({ ...formData, supplier_contact: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+            <input
+              type="number"
+              value={formData.cost}
+              onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
+            <input
+              type="text"
+              value={formData.discount || ''}
+              onChange={(e) => setFormData({ ...formData, discount: e.target.value || null })}
+              placeholder="e.g., 5 or 5/10"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p className="text-cyan-700">Supplier</p>
+            <p className="font-medium text-cyan-900">{inquiry.supplier_name || '-'}</p>
+          </div>
+          <div>
+            <p className="text-cyan-700">Contact</p>
+            <p className="font-medium text-cyan-900">{inquiry.supplier_contact || '-'}</p>
+          </div>
+          <div>
+            <p className="text-cyan-700">Cost</p>
+            <p className="font-medium text-red-600">₱{inquiry.cost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div>
+            <p className="text-cyan-700">Discount</p>
+            <p className="font-medium text-orange-600">{inquiry.discount || '-'}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AddSecretaryModal({ adminId, onClose, onAdd }: { adminId: string; onClose: () => void; onAdd: (profile: UserProfile) => void }) {
   const [email, setEmail] = useState('');
