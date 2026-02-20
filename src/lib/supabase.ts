@@ -111,7 +111,7 @@ export async function getFilteredItems(filters: FilterOptions): Promise<Inventor
   return data || [];
 }
 
-export async function addItem(item: Omit<InventoryItem, "id" | "created_at">): Promise<InventoryItem> {
+export async function addItem(item: Omit<InventoryItem, "id" | "created_at"> & { created_at?: string }): Promise<InventoryItem> {
   const { data, error } = await supabase.from("items").insert([item]).select().single();
   if (error) {
     console.error("Supabase addItem error:", {

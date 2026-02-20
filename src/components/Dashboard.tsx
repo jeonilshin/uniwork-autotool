@@ -152,14 +152,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'inventory' | 'secretaries'>('inventory');
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartId, setDragStartId] = useState<string | null>(null);
+  const [dragStartSelected, setDragStartSelected] = useState(false);
+  const [showDragIndicator, setShowDragIndicator] = useState(false);
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [isDrawingSelection, setIsDrawingSelection] = useState(false);
   const [secretaries, setSecretaries] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [showImportPreview, setShowImportPreview] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [selectedInquiryItem, setSelectedInquiryItem] = useState<InventoryItem | null>(null);
   const [showSecretaryModal, setShowSecretaryModal] = useState(false);
@@ -577,6 +586,174 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     });
   };
 
+  const handleMouseDown = (id: string, e: React.MouseEvent) => {
+    // Don't start drag if clicking on checkbox or other interactive elements
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'SVG' || target.closest('button') || target.closest('input')) {
+      return;
+    }
+    
+    e.preventDefault();
+    setIsDragging(true);
+    setShowDragIndicator(true);
+    setDragStartId(id);
+    const isSelected = selectedItems.has(id);
+    setDragStartSelected(isSelected);
+    
+    // Toggle the item
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (isSelected) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  // Selection box drawing handlers
+  const handleTableMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Only start selection box if clicking on the table container itself (not on rows or cells)
+    if (target.closest('tr') || target.tagName === 'INPUT' || target.tagName === 'BUTTON') {
+      return;
+    }
+    
+    setIsDrawingSelection(true);
+    setSelectionBox({
+      startX: e.clientX,
+      startY: e.clientY,
+      endX: e.clientX,
+      endY: e.clientY,
+    });
+  };
+
+  const handleTableMouseMove = (e: React.MouseEvent) => {
+    if (isDrawingSelection && selectionBox) {
+      setSelectionBox({
+        ...selectionBox,
+        endX: e.clientX,
+        endY: e.clientY,
+      });
+      
+      // Check which rows intersect with the selection box
+      const rows = document.querySelectorAll('tbody tr[data-item-id]');
+      const newSelected = new Set<string>();
+      
+      rows.forEach((row) => {
+        const rect = row.getBoundingClientRect();
+        const itemId = row.getAttribute('data-item-id');
+        if (!itemId) return;
+        
+        // Check if row intersects with selection box
+        const boxLeft = Math.min(selectionBox.startX, e.clientX);
+        const boxRight = Math.max(selectionBox.startX, e.clientX);
+        const boxTop = Math.min(selectionBox.startY, e.clientY);
+        const boxBottom = Math.max(selectionBox.startY, e.clientY);
+        
+        if (
+          rect.left < boxRight &&
+          rect.right > boxLeft &&
+          rect.top < boxBottom &&
+          rect.bottom > boxTop
+        ) {
+          newSelected.add(itemId);
+        }
+      });
+      
+      setSelectedItems(newSelected);
+    }
+  };
+
+  const handleTableMouseUp = () => {
+    setIsDrawingSelection(false);
+    setSelectionBox(null);
+  };
+
+  const handleMouseEnter = (id: string) => {
+    if (isDragging) {
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        if (dragStartSelected) {
+          // If we started on a selected item, deselect items we drag over
+          newSet.delete(id);
+        } else {
+          // If we started on an unselected item, select items we drag over
+          newSet.add(id);
+        }
+        return newSet;
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setShowDragIndicator(false);
+    setDragStartId(null);
+    setDragStartSelected(false);
+  };
+
+  // Add global mouse up and move listeners for selection box
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        setShowDragIndicator(false);
+        setDragStartId(null);
+        setDragStartSelected(false);
+      }
+      if (isDrawingSelection) {
+        setIsDrawingSelection(false);
+        setSelectionBox(null);
+      }
+    };
+    
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (isDrawingSelection && selectionBox) {
+        setSelectionBox({
+          ...selectionBox,
+          endX: e.clientX,
+          endY: e.clientY,
+        });
+        
+        // Check which rows intersect with the selection box
+        const rows = document.querySelectorAll('tbody tr[data-item-id]');
+        const newSelected = new Set<string>();
+        
+        rows.forEach((row) => {
+          const rect = row.getBoundingClientRect();
+          const itemId = row.getAttribute('data-item-id');
+          if (!itemId) return;
+          
+          // Check if row intersects with selection box
+          const boxLeft = Math.min(selectionBox.startX, e.clientX);
+          const boxRight = Math.max(selectionBox.startX, e.clientX);
+          const boxTop = Math.min(selectionBox.startY, e.clientY);
+          const boxBottom = Math.max(selectionBox.startY, e.clientY);
+          
+          if (
+            rect.left < boxRight &&
+            rect.right > boxLeft &&
+            rect.top < boxBottom &&
+            rect.bottom > boxTop
+          ) {
+            newSelected.add(itemId);
+          }
+        });
+        
+        setSelectedItems(newSelected);
+      }
+    };
+    
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [isDragging, isDrawingSelection, selectionBox]);
+
   const toggleSelectAll = () => {
     if (selectedItems.size === items.length) {
       setSelectedItems(new Set());
@@ -702,9 +879,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         const arrayBuffer = await importFile.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         
-        // Get first sheet
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
+        // Use selected sheet or first sheet
+        const sheetName = selectedSheet || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
         
         // Convert to array of arrays
         rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as any[][];
@@ -765,11 +942,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           });
 
           // Handle date parsing with context
-          if (row.created_at) {
+          if (row.created_at && row.created_at.trim()) {
             const dateStr = row.created_at.trim();
             
             // Check if it's a year (4 digits only, no other data)
-            if (/^\d{4}$/.test(dateStr) && !row.brand && !row.particular && !row.cost) {
+            if (/^\d{4}$/.test(dateStr) && !row.brand && !row.particular && !row.cost && !row.sale) {
               currentYear = dateStr;
               currentMonth = ''; // Reset month when year changes
               currentDay = '';
@@ -786,7 +963,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               monthIndex = monthAbbr.findIndex(m => lowerDate.includes(m));
             }
             
-            if (monthIndex !== -1 && !row.brand && !row.particular && !row.cost) {
+            if (monthIndex !== -1 && !row.brand && !row.particular && !row.cost && !row.sale) {
               currentMonth = String(monthIndex + 1).padStart(2, '0');
               currentDay = ''; // Reset day when month changes
               
@@ -807,10 +984,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 currentDay = String(day).padStart(2, '0');
                 
                 // If this row has data, use the current context
-                if (row.brand || row.particular || row.cost) {
+                if (row.brand || row.particular || row.cost || row.sale) {
                   if (currentYear && currentMonth && currentDay) {
                     row.created_at = new Date(`${currentYear}-${currentMonth}-${currentDay}`).toISOString();
                   } else {
+                    // No complete context, use today
                     row.created_at = new Date().toISOString();
                   }
                 } else {
@@ -823,10 +1001,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               row.created_at = parseCSVDate(dateStr, currentYear, currentMonth, currentDay);
             }
           } else {
-            // No date in this row, use current context
+            // No date in this row, use current context if available
             if (currentYear && currentMonth && currentDay) {
               row.created_at = new Date(`${currentYear}-${currentMonth}-${currentDay}`).toISOString();
+            } else if (currentYear && currentMonth) {
+              // Have year and month but no day, use day 1
+              row.created_at = new Date(`${currentYear}-${currentMonth}-01`).toISOString();
+            } else if (currentYear) {
+              // Only have year, use Jan 1
+              row.created_at = new Date(`${currentYear}-01-01`).toISOString();
             } else {
+              // No context at all, use today's date
               row.created_at = new Date().toISOString();
             }
           }
@@ -880,12 +1065,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     if (importPreview.length === 0) return;
 
     setImporting(true);
+    setImportProgress(0);
     try {
       let successCount = 0;
       let errorCount = 0;
       const importedItems: any[] = [];
+      const totalItems = importPreview.length;
 
-      for (const previewItem of importPreview) {
+      for (let i = 0; i < importPreview.length; i++) {
+        const previewItem = importPreview[i];
         try {
           const newItem = await addItem({
             image_url: null,
@@ -911,6 +1099,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             payment_collected: false,
             remark: previewItem.remark,
             user_id: userId,
+            created_at: previewItem.created_at, // Use the parsed date from preview
           });
 
           importedItems.push(newItem);
@@ -919,6 +1108,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           console.error('Error importing item:', error);
           errorCount++;
         }
+        
+        // Update progress
+        setImportProgress(((i + 1) / totalItems) * 100);
       }
 
       // Add imported items and sort by date
@@ -927,11 +1119,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       );
       setItems(allItems);
 
-      alert(`Import complete!\nSuccessfully imported: ${successCount}\nFailed: ${errorCount}`);
+      // Show completion message briefly then auto-close
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       setShowImportModal(false);
       setShowImportPreview(false);
       setImportPreview([]);
       setImportFile(null);
+      setImportProgress(0);
+      setAvailableSheets([]);
+      setSelectedSheet('');
+      
+      alert(`Import complete!\nSuccessfully imported: ${successCount}\nFailed: ${errorCount}`);
     } catch (error) {
       console.error('Import error:', error);
       alert('Failed to import items. Please try again.');
@@ -1059,7 +1258,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
             ) : (
               <div onClick={() => startEdit(item.id, 'cost', item.cost)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
-                <span className="text-red-600 font-medium">{formatPeso(item.cost)}</span>
+                <span className="text-red-600 font-medium">{(item.cost || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
           </td>
@@ -1111,7 +1310,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
             ) : (
               <div onClick={() => startEdit(item.id, 'sale', item.sale)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
-                <span className="text-green-600 font-medium">{formatPeso(item.sale)}</span>
+                <span className="text-green-600 font-medium">{(item.sale || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
           </td>
@@ -1176,44 +1375,71 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   return (
     <ScreenshotProtection enabled={!isAdmin}>
       <div className="min-h-screen bg-gray-50">
+        {/* Drag Selection Indicator */}
+        {showDragIndicator && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-blue-600 text-white rounded-full shadow-lg flex items-center gap-3 animate-pulse">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+            </svg>
+            <span className="font-semibold">
+              {dragStartSelected ? 'Drag to deselect' : 'Drag to select'} • {selectedItems.size} selected
+            </span>
+          </div>
+        )}
+        
+        {/* Selection Box Overlay */}
+        {selectionBox && (
+          <div
+            className="fixed pointer-events-none z-40"
+            style={{
+              left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
+              top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
+              width: `${Math.abs(selectionBox.endX - selectionBox.startX)}px`,
+              height: `${Math.abs(selectionBox.endY - selectionBox.startY)}px`,
+              border: '2px dashed #3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            }}
+          />
+        )}
+        
         <header className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
-                  <TruckIcon className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+                  <TruckIcon className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">UTS 1.0</h1>
+                  <h1 className="text-lg font-bold text-gray-900">UTS 1.0</h1>
                   <span className={`text-xs px-2 py-0.5 rounded ${isAdmin ? 'bg-amber-500/20 text-amber-400' : 'bg-gray-300/20 text-gray-600'}`}>
                     {isAdmin ? 'Admin' : 'Secretary'}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-gray-600 hidden sm:block"><span className="text-gray-900 font-medium">{userEmail}</span></span>
-                <button onClick={handleLogout} className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition">Logout</button>
+                <span className="text-sm text-gray-600 hidden sm:block"><span className="text-gray-900 font-medium">{userEmail}</span></span>
+                <button onClick={handleLogout} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition">Logout</button>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <main className="w-full px-4 sm:px-6 lg:px-8 py-4">
           {/* Tabs */}
-          <div className="flex gap-2 mb-6">
-            <button onClick={() => setActiveTab('inventory')} className={`px-6 py-3 rounded-xl font-medium transition ${activeTab === 'inventory' ? 'bg-emerald-500 text-gray-900' : 'bg-gray-50 text-gray-600 hover:text-gray-900'}`}>
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 text-sm rounded-lg font-medium transition ${activeTab === 'inventory' ? 'bg-emerald-500 text-gray-900' : 'bg-gray-50 text-gray-600 hover:text-gray-900'}`}>
               Inventory
             </button>
             {isAdmin && (
-              <button onClick={() => setActiveTab('secretaries')} className={`px-6 py-3 rounded-xl font-medium transition ${activeTab === 'secretaries' ? 'bg-emerald-500 text-white' : 'bg-gray-50 text-gray-600 hover:text-gray-900'}`}>
+              <button onClick={() => setActiveTab('secretaries')} className={`px-4 py-2 text-sm rounded-lg font-medium transition ${activeTab === 'secretaries' ? 'bg-emerald-500 text-white' : 'bg-gray-50 text-gray-600 hover:text-gray-900'}`}>
                 Secretaries ({secretaries.length})
               </button>
             )}
             <button 
               onClick={() => setShowImportModal(true)}
-              className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition flex items-center gap-2 ml-auto"
+              className="px-4 py-2 text-sm bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition flex items-center gap-2 ml-auto"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="hidden sm:inline">Import</span>
@@ -1223,33 +1449,33 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           {activeTab === 'inventory' ? (
             <>
               {/* Search, Filters, and Add */}
-              <div className="flex flex-col gap-4 mb-8">
-                <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 relative">
-                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search brand, part number, description, supplier, customer..." className="w-full pl-12 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search brand, part number, description, supplier, customer..." className="w-full pl-10 pr-10 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                     {searching && (
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setShowFilters(!showFilters)} className={`px-4 py-3 rounded-xl border transition flex items-center gap-2 ${showFilters || filters.status !== 'all' || filters.freightType !== 'all' || filters.inquired !== 'all' ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900'}`}>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                    <button onClick={() => setShowFilters(!showFilters)} className={`px-3 py-2 text-sm rounded-lg border transition flex items-center gap-2 ${showFilters || filters.status !== 'all' || filters.freightType !== 'all' || filters.inquired !== 'all' ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900'}`}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                       <span className="hidden sm:inline">Filters</span>
                     </button>
-                    <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-2">
-                      <button onClick={zoomOut} disabled={zoomLevel <= 60} className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition" title="Zoom Out">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+                    <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-1.5">
+                      <button onClick={zoomOut} disabled={zoomLevel <= 60} className="p-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition" title="Zoom Out">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
                       </button>
-                      <button onClick={resetZoom} className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 font-medium min-w-[45px]" title="Reset Zoom">
+                      <button onClick={resetZoom} className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 font-medium min-w-[40px]" title="Reset Zoom">
                         {zoomLevel}%
                       </button>
-                      <button onClick={zoomIn} disabled={zoomLevel >= 150} className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition" title="Zoom In">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      <button onClick={zoomIn} disabled={zoomLevel >= 150} className="p-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition" title="Zoom In">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       </button>
                     </div>
                     <button 
@@ -1259,20 +1485,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           setColumnOrder(defaultColumnOrder);
                         }
                       }} 
-                      className="px-4 py-3 bg-gray-50 border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition flex items-center gap-2"
+                      className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
                       title="Reset column layout to default"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      <span className="hidden sm:inline">Reset Layout</span>
+                      <span className="hidden sm:inline">Reset</span>
                     </button>
                     {selectedItems.size > 0 && (
                       <button 
                         onClick={handleBulkDelete}
-                        className="px-6 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition flex items-center gap-2"
+                        className="px-4 py-2 text-sm bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition flex items-center gap-2"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                         <span className="hidden sm:inline">Delete ({selectedItems.size})</span>
@@ -1312,19 +1538,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         const errorMsg = error?.message || error?.details || error?.hint || error?.code || 'Unknown error. Please check browser console (F12) for details.';
                         alert('Failed to add item: ' + errorMsg + '\n\nPlease check the browser console (F12 → Console tab) for more details.');
                       }
-                    }} className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    }} className="px-4 py-2 text-sm bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       <span className="hidden sm:inline">Add Item</span>
                     </button>
                   </div>
                 </div>
 
                 {showFilters && (
-                  <div className="bg-gray-50 backdrop-blur-lg rounded-2xl p-6 border border-gray-200">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="bg-gray-50 backdrop-blur-lg rounded-lg p-4 border border-gray-200">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                        <select value={filters.status || 'all'} onChange={(e) => setFilters({ ...filters, status: e.target.value as ItemStatus | 'all' })} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Status</label>
+                        <select value={filters.status || 'all'} onChange={(e) => setFilters({ ...filters, status: e.target.value as ItemStatus | 'all' })} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                           <option value="all">All</option>
                           <option value="inquired">Inquired</option>
                           <option value="bought">Bought</option>
@@ -1333,8 +1559,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Freight</label>
-                        <select value={filters.freightType || 'all'} onChange={(e) => setFilters({ ...filters, freightType: e.target.value as FreightType | 'all' })} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Freight</label>
+                        <select value={filters.freightType || 'all'} onChange={(e) => setFilters({ ...filters, freightType: e.target.value as FreightType | 'all' })} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                           <option value="all">All</option>
                           <option value="sea">Sea</option>
                           <option value="land">Land</option>
@@ -1342,23 +1568,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Inquired</label>
-                        <select value={filters.inquired === 'all' ? 'all' : filters.inquired ? 'yes' : 'no'} onChange={(e) => setFilters({ ...filters, inquired: e.target.value === 'all' ? 'all' : e.target.value === 'yes' })} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Inquired</label>
+                        <select value={filters.inquired === 'all' ? 'all' : filters.inquired ? 'yes' : 'no'} onChange={(e) => setFilters({ ...filters, inquired: e.target.value === 'all' ? 'all' : e.target.value === 'yes' })} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                           <option value="all">All</option>
                           <option value="yes">Inquired</option>
                           <option value="no">Not Inquired</option>
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Min Cost (₱)</label>
-                        <input type="number" value={filters.minCost || ''} onChange={(e) => setFilters({ ...filters, minCost: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Min Cost (₱)</label>
+                        <input type="number" value={filters.minCost || ''} onChange={(e) => setFilters({ ...filters, minCost: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Max Cost (₱)</label>
-                        <input type="number" value={filters.maxCost || ''} onChange={(e) => setFilters({ ...filters, maxCost: e.target.value ? Number(e.target.value) : undefined })} placeholder="100000" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Max Cost (₱)</label>
+                        <input type="number" value={filters.maxCost || ''} onChange={(e) => setFilters({ ...filters, maxCost: e.target.value ? Number(e.target.value) : undefined })} placeholder="100000" className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                       </div>
                       <div className="flex items-end">
-                        <button onClick={() => setFilters({ status: 'all', freightType: 'all', inquired: 'all' })} className="w-full px-4 py-3 bg-gray-50 text-gray-700 font-medium rounded-xl hover:bg-gray-100 transition">Clear</button>
+                        <button onClick={() => setFilters({ status: 'all', freightType: 'all', inquired: 'all' })} className="w-full px-3 py-2 text-sm bg-gray-50 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition">Clear</button>
                       </div>
                     </div>
                   </div>
@@ -1380,23 +1606,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 </div>
               ) : (
                 /* List View - Excel Style */
-                <div className="bg-white border border-gray-300 shadow-sm overflow-hidden relative">
-                  <div className="overflow-x-auto overflow-y-visible" style={{maxHeight: 'calc(100vh - 300px)'}}>
+                <div 
+                  className="bg-white border border-gray-300 shadow-sm overflow-hidden relative"
+                  onMouseDown={handleTableMouseDown}
+                  onMouseMove={handleTableMouseMove}
+                  onMouseUp={handleTableMouseUp}
+                >
+                  <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 220px)', overflowY: 'auto'}}>
                     <div style={{transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: `${10000 / zoomLevel}%`}}>
                       <table className="w-full text-sm" style={{borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1600px'}}>
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="border-b-2 border-gray-400 bg-gray-100">
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12">
-                            <input
-                              type="checkbox"
-                              checked={items.length > 0 && selectedItems.size === items.length}
-                              onChange={toggleSelectAll}
-                              className="w-4 h-4 cursor-pointer"
-                              title="Select All"
-                            />
-                          </th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12">#</th>
-                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-10">
+                          {(selectedItems.size > 0 || isDragging) && (
+                            <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-12 bg-gray-100">
+                              <input
+                                type="checkbox"
+                                checked={items.length > 0 && selectedItems.size === items.length}
+                                onChange={toggleSelectAll}
+                                className="w-4 h-4 cursor-pointer"
+                                title="Select All"
+                              />
+                            </th>
+                          )}
+                          <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300 w-10 bg-gray-100">
                             <button onClick={toggleAllRows} className="flex items-center justify-center gap-1 hover:text-gray-900 transition mx-auto">
                               <svg className={`w-4 h-4 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
@@ -1409,7 +1641,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               onDragOver={(e) => handleDragOver(e, colKey)}
                               onDrop={(e) => handleDrop(e, colKey)}
                               onDragEnd={handleDragEnd}
-                              className={`text-center p-2 text-gray-700 font-semibold border-r border-gray-300 relative group ${
+                              className={`text-center p-2 text-gray-700 font-semibold border-r border-gray-300 relative group bg-gray-100 ${
                                 draggingColumn === colKey ? 'opacity-50' : ''
                               } ${dragOverColumn === colKey ? 'bg-blue-100' : ''}`}
                               style={{ width: `${columnWidths[colKey]}px`, cursor: draggingColumn ? 'grabbing' : 'grab' }}
@@ -1425,26 +1657,35 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               />
                             </th>
                           ))}
-                          <th className="text-center p-2 text-gray-700 font-semibold w-12"></th>
+                          <th className="text-center p-2 text-gray-700 font-semibold w-12 bg-gray-100"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((item, index) => {
                           const hasInquired = item.is_inquired && item.inquired_list && item.inquired_list.length > 0;
                           const isExpanded = expandedRows.has(item.id);
+                          const isSelected = selectedItems.has(item.id);
                           return (
                             <React.Fragment key={item.id}>
-                              <tr className="border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50">
-                                <td className="p-2 text-center border-r border-gray-200 w-12">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedItems.has(item.id)}
-                                    onChange={() => toggleSelectItem(item.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-4 h-4 cursor-pointer"
-                                  />
-                                </td>
-                                <td className="p-2 text-center text-gray-600 font-medium border-r border-gray-200 w-12">{index + 1}</td>
+                              <tr 
+                                data-item-id={item.id}
+                                className={`border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50 ${isSelected ? 'bg-blue-100 border-l-4 border-l-blue-500' : ''} ${isDragging ? 'cursor-crosshair' : ''}`}
+                                onMouseDown={(e) => handleMouseDown(item.id, e)}
+                                onMouseEnter={() => handleMouseEnter(item.id)}
+                                onMouseUp={handleMouseUp}
+                                style={{ userSelect: 'none' }}
+                              >
+                                {(selectedItems.size > 0 || isDragging) && (
+                                  <td className="p-2 text-center border-r border-gray-200 w-12">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleSelectItem(item.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-4 h-4 cursor-pointer"
+                                    />
+                                  </td>
+                                )}
                                 <td className="p-2 border-r border-gray-200 w-10">
                                   {hasInquired ? (
                                     <button onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }} className="text-gray-600 hover:text-gray-900 transition">
@@ -1571,7 +1812,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   setShowImportModal(false); 
                   setShowImportPreview(false); 
                   setImportPreview([]);
-                  setImportFile(null); 
+                  setImportFile(null);
+                  setAvailableSheets([]);
+                  setSelectedSheet('');
                 }} className="text-gray-600 hover:text-gray-900 transition">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -1595,7 +1838,27 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       <input
                         type="file"
                         accept=".csv,.xlsx,.xls"
-                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0] || null;
+                          setImportFile(file);
+                          
+                          // Detect sheets for Excel files
+                          if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                            try {
+                              const arrayBuffer = await file.arrayBuffer();
+                              const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                              setAvailableSheets(workbook.SheetNames);
+                              setSelectedSheet(workbook.SheetNames[0]); // Default to first sheet
+                            } catch (error) {
+                              console.error('Error reading Excel file:', error);
+                              setAvailableSheets([]);
+                              setSelectedSheet('');
+                            }
+                          } else {
+                            setAvailableSheets([]);
+                            setSelectedSheet('');
+                          }
+                        }}
                         className="hidden"
                         id="import-file"
                       />
@@ -1613,6 +1876,26 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </div>
                       </label>
                     </div>
+
+                    {/* Sheet Selector for Excel files */}
+                    {availableSheets.length > 0 && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <label className="block text-sm font-semibold text-purple-900 mb-2">
+                          Select Sheet to Import ({availableSheets.length} sheets found):
+                        </label>
+                        <select
+                          value={selectedSheet}
+                          onChange={(e) => setSelectedSheet(e.target.value)}
+                          className="w-full px-4 py-2 bg-white border border-purple-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          {availableSheets.map((sheetName) => (
+                            <option key={sheetName} value={sheetName}>
+                              {sheetName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1627,7 +1910,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <table className="w-full text-sm" style={{borderCollapse: 'collapse'}}>
                           <thead className="sticky top-0 bg-gray-100 border-b-2 border-gray-400">
                             <tr>
-                              <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">#</th>
                               <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Date</th>
                               <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Brand</th>
                               <th className="text-center p-2 text-gray-700 font-semibold border-r border-gray-300">Part Number</th>
@@ -1645,7 +1927,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           <tbody>
                             {importPreview.map((item, index) => (
                               <tr key={index} className="border-b border-gray-200 hover:bg-blue-50 transition even:bg-gray-50">
-                                <td className="p-2 text-center text-gray-600 border-r border-gray-200">{index + 1}</td>
                                 <td className="p-2 text-center text-gray-600 text-xs border-r border-gray-200">{formatDate(item.created_at)}</td>
                                 <td className="p-2 text-gray-900 border-r border-gray-200">{item.brand || '-'}</td>
                                 <td className="p-2 text-gray-900 border-r border-gray-200">{item.part_number || '-'}</td>
@@ -1669,11 +1950,30 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               </div>
 
               <div className="p-6 border-t border-gray-200">
+                {importing && importProgress > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Importing items...</span>
+                      <span className="text-sm font-medium text-gray-700">{Math.round(importProgress)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className="bg-green-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${importProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   {!showImportPreview ? (
                     <>
                       <button
-                        onClick={() => { setShowImportModal(false); setImportFile(null); }}
+                        onClick={() => { 
+                          setShowImportModal(false); 
+                          setImportFile(null); 
+                          setAvailableSheets([]);
+                          setSelectedSheet('');
+                        }}
                         className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
                       >
                         Cancel
@@ -1706,7 +2006,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           setShowImportPreview(false); 
                           setImportPreview([]);
                         }}
-                        className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
+                        disabled={importing}
+                        className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Back
                       </button>
