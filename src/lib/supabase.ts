@@ -95,7 +95,7 @@ export async function getAllItems(): Promise<InventoryItem[]> {
 }
 
 export async function getFilteredItems(filters: FilterOptions): Promise<InventoryItem[]> {
-  let query = supabase.from("items").select("*");
+  let query = supabase.from("items").select("*", { count: 'exact' });
 
   if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
   if (filters.freightType && filters.freightType !== "all") query = query.eq("freight_type", filters.freightType);
@@ -106,9 +106,36 @@ export async function getFilteredItems(filters: FilterOptions): Promise<Inventor
     query = query.or(`brand.ilike.%${filters.searchQuery}%,part_number.ilike.%${filters.searchQuery}%,particular.ilike.%${filters.searchQuery}%,supplier_name.ilike.%${filters.searchQuery}%,customer_name.ilike.%${filters.searchQuery}%`);
   }
 
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) throw error;
-  return data || [];
+  // Fetch all records by removing the default 1000 limit
+  // We'll fetch in batches if needed
+  const pageSize = 1000;
+  let allData: InventoryItem[] = [];
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+    
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      allData = [...allData, ...data];
+      page++;
+      
+      // Check if we've fetched all records
+      if (count !== null && allData.length >= count) {
+        hasMore = false;
+      } else if (data.length < pageSize) {
+        hasMore = false;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
 }
 
 export async function addItem(item: Omit<InventoryItem, "id" | "created_at"> & { created_at?: string }): Promise<InventoryItem> {
