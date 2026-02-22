@@ -1085,6 +1085,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     // Helper to get the actual data field name from UI field name
     const getDataFieldName = (uiField: ColumnKey): string => {
       const fieldMap: Record<string, string> = {
+        'description': 'particular',
         'supplier': 'supplier_name',
         'customer': 'customer_name'
       };
