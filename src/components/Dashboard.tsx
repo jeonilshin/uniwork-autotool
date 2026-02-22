@@ -2071,12 +2071,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                     type="checkbox"
                                     checked={isSelected}
                                     onChange={() => toggleSelectItem(item.id)}
+                                    tabIndex={-1}
                                     className="w-4 h-4 cursor-pointer"
                                   />
                                 </td>
                                 <td className="p-2 border-r border-gray-200 w-10">
                                   {hasInquired ? (
-                                    <button onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }} className="text-gray-600 hover:text-gray-900 transition">
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }} 
+                                      tabIndex={-1}
+                                      className="text-gray-600 hover:text-gray-900 transition"
+                                    >
                                       <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                     </button>
                                   ) : (
@@ -2086,6 +2091,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                         setSelectedInquiryItem(item); 
                                         setShowInquiryModal(true); 
                                       }} 
+                                      tabIndex={-1}
                                       className="text-blue-500 hover:text-blue-700 transition"
                                       title="Add Inquiry"
                                     >
