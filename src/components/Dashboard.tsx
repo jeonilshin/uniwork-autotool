@@ -1061,8 +1061,33 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       saveEdit();
     } else if (e.key === 'Escape') {
       cancelEdit();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      saveEdit();
+      
+      // Move to next editable cell
+      const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
+      const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
+      
+      if (currentItemIndex !== -1 && currentFieldIndex !== -1) {
+        // Try next column in same row
+        if (currentFieldIndex < columnOrder.length - 1) {
+          const nextField = columnOrder[currentFieldIndex + 1];
+          const nextItem = paginatedItems[currentItemIndex];
+          setTimeout(() => {
+            startEdit(nextItem.id, nextField, (nextItem as any)[nextField === 'description' ? 'particular' : nextField === 'supplier' ? 'supplier_name' : nextField === 'customer' ? 'customer_name' : nextField]);
+          }, 50);
+        } else if (currentItemIndex < paginatedItems.length - 1) {
+          // Move to first column of next row
+          const nextItem = paginatedItems[currentItemIndex + 1];
+          const firstField = columnOrder[0];
+          setTimeout(() => {
+            startEdit(nextItem.id, firstField, (nextItem as any)[firstField === 'description' ? 'particular' : firstField === 'supplier' ? 'supplier_name' : firstField === 'customer' ? 'customer_name' : firstField]);
+          }, 50);
+        }
+      }
     }
-  }, [saveEdit, cancelEdit]);
+  }, [saveEdit, cancelEdit, editingItemId, editingField, paginatedItems, columnOrder, startEdit]);
 
   // Render cell based on column type
   const renderCell = (item: InventoryItem, colKey: ColumnKey) => {
@@ -1083,7 +1108,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'brand' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'brand', item.brand)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'brand') ? 'bg-yellow-200' : hasMatch(item.id, 'brand') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'brand', item.brand);
+                }} 
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'brand', item.brand);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'brand') ? 'bg-yellow-200' : hasMatch(item.id, 'brand') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.brand || '-'}
               </div>
             )}
@@ -1096,7 +1131,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'part_number' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'part_number', item.part_number)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'part_number') ? 'bg-yellow-200' : hasMatch(item.id, 'part_number') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'part_number', item.part_number);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'part_number', item.part_number);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'part_number') ? 'bg-yellow-200' : hasMatch(item.id, 'part_number') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.part_number || '-'}
               </div>
             )}
@@ -1109,7 +1154,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'description' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'description', item.particular)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'particular') ? 'bg-yellow-200' : hasMatch(item.id, 'particular') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'description', item.particular);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'description', item.particular);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'particular') ? 'bg-yellow-200' : hasMatch(item.id, 'particular') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.particular || '-'}
               </div>
             )}
@@ -1122,7 +1177,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'cost' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'cost', item.cost)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'cost', item.cost);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'cost', item.cost);
+                }}
+                className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded"
+              >
                 <span className="text-red-600 font-medium">{(item.cost || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
@@ -1135,7 +1200,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'unit' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'unit', item.unit)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'unit') ? 'bg-yellow-200' : hasMatch(item.id, 'unit') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'unit', item.unit);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'unit', item.unit);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'unit') ? 'bg-yellow-200' : hasMatch(item.id, 'unit') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.unit}
               </div>
             )}
@@ -1148,7 +1223,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'discount' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'discount', item.discount)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'discount', item.discount);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'discount', item.discount);
+                }}
+                className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded"
+              >
                 {item.discount || '-'}
               </div>
             )}
@@ -1161,7 +1246,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'supplier_name' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'supplier_name', item.supplier_name)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'supplier_name') ? 'bg-yellow-200' : hasMatch(item.id, 'supplier_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'supplier_name', item.supplier_name);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'supplier_name', item.supplier_name);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'supplier_name') ? 'bg-yellow-200' : hasMatch(item.id, 'supplier_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.supplier_name}
               </div>
             )}
@@ -1174,7 +1269,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'sale' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'sale', item.sale)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'sale', item.sale);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'sale', item.sale);
+                }}
+                className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded"
+              >
                 <span className="text-green-600 font-medium">{(item.sale || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
@@ -1187,7 +1292,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'customer_name' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'customer_name', item.customer_name)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'customer_name') ? 'bg-yellow-200' : hasMatch(item.id, 'customer_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'customer_name', item.customer_name);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'customer_name', item.customer_name);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'customer_name') ? 'bg-yellow-200' : hasMatch(item.id, 'customer_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.customer_name}
               </div>
             )}
@@ -1200,7 +1315,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'qty' ? (
               <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-center focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'qty', item.qty)} className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'qty', item.qty);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'qty', item.qty);
+                }}
+                className="cursor-pointer hover:bg-blue-100 px-2 py-1 rounded"
+              >
                 {item.qty}
               </div>
             )}
@@ -1213,7 +1338,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {editingItemId === item.id && editingField === 'remark' ? (
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
             ) : (
-              <div onClick={() => startEdit(item.id, 'remark', item.remark)} className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'remark') ? 'bg-yellow-200' : hasMatch(item.id, 'remark') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'remark', item.remark);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(item.id, 'remark', item.remark);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'remark') ? 'bg-yellow-200' : hasMatch(item.id, 'remark') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
+              >
                 {item.remark || '-'}
               </div>
             )}
@@ -1585,6 +1720,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                 <td className="p-2 text-center">
                                   <button
                                     onClick={() => handleDelete(item.id)}
+                                    tabIndex={-1}
                                     className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition"
                                     title="Delete"
                                   >
