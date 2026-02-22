@@ -1076,6 +1076,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       return -1;
     };
     
+    // Helper to get the actual data field name from UI field name
+    const getDataFieldName = (uiField: ColumnKey): string => {
+      const fieldMap: Record<string, string> = {
+        'supplier': 'supplier_name',
+        'customer': 'customer_name'
+      };
+      return fieldMap[uiField] || uiField;
+    };
+    
+    // Helper to get UI field name from editing field (which might be data field or UI field)
+    const getUIFieldName = (field: string): ColumnKey => {
+      // Check if it's already a UI field in columnOrder
+      if (columnOrder.includes(field as ColumnKey)) {
+        return field as ColumnKey;
+      }
+      // Map data field names back to UI field names
+      const dataToUIMap: Record<string, ColumnKey> = {
+        'supplier_name': 'supplier',
+        'customer_name': 'customer'
+      };
+      return dataToUIMap[field] || (field as ColumnKey);
+    };
+    
     if (e.key === 'Enter') {
       e.preventDefault();
       saveEdit();
@@ -1091,15 +1114,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         e.preventDefault();
         setIsNavigating(true);
         
-        // Map database field names to UI column keys
-        const dbToUIFieldMap: Record<string, ColumnKey> = {
-          'particular': 'description',
-          'supplier_name': 'supplier',
-          'customer_name': 'customer'
-        };
-        
         // Get the UI field name for current editing field
-        const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+        const currentUIField = getUIFieldName(editingField || '');
         
         // Find current position
         const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
@@ -1123,17 +1139,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           if (nextFieldIndex !== -1 && (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex)) {
             const nextItem = paginatedItems[nextItemIndex];
             const nextUIField = columnOrder[nextFieldIndex];
-            
-            // Map UI field to database field
-            const uiToDBFieldMap: Record<string, string> = {
-              'description': 'particular',
-              'supplier': 'supplier_name',
-              'customer': 'customer_name'
-            };
-            const nextDBField = uiToDBFieldMap[nextUIField] || nextUIField;
+            const nextDataField = getDataFieldName(nextUIField);
             
             setTimeout(() => {
-              startEdit(nextItem.id, nextDBField, (nextItem as any)[nextDBField]);
+              startEdit(nextItem.id, nextUIField, (nextItem as any)[nextDataField]);
               setIsNavigating(false);
             }, 10);
           } else {
@@ -1152,15 +1161,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         e.preventDefault();
         setIsNavigating(true);
         
-        // Map database field names to UI column keys
-        const dbToUIFieldMap: Record<string, ColumnKey> = {
-          'particular': 'description',
-          'supplier_name': 'supplier',
-          'customer_name': 'customer'
-        };
-        
         // Get the UI field name for current editing field
-        const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+        const currentUIField = getUIFieldName(editingField || '');
         
         // Find current position
         const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
@@ -1184,17 +1186,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           if (prevFieldIndex !== -1 && (prevItemIndex !== currentItemIndex || prevFieldIndex !== currentFieldIndex)) {
             const prevItem = paginatedItems[prevItemIndex];
             const prevUIField = columnOrder[prevFieldIndex];
-            
-            // Map UI field to database field
-            const uiToDBFieldMap: Record<string, string> = {
-              'description': 'particular',
-              'supplier': 'supplier_name',
-              'customer': 'customer_name'
-            };
-            const prevDBField = uiToDBFieldMap[prevUIField] || prevUIField;
+            const prevDataField = getDataFieldName(prevUIField);
             
             setTimeout(() => {
-              startEdit(prevItem.id, prevDBField, (prevItem as any)[prevDBField]);
+              startEdit(prevItem.id, prevUIField, (prevItem as any)[prevDataField]);
               setIsNavigating(false);
             }, 10);
           } else {
@@ -1208,15 +1203,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       e.preventDefault();
       setIsNavigating(true);
       
-      // Map database field names to UI column keys
-      const dbToUIFieldMap: Record<string, ColumnKey> = {
-        'particular': 'description',
-        'supplier_name': 'supplier',
-        'customer_name': 'customer'
-      };
-      
       // Get the UI field name for current editing field
-      const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+      const currentUIField = getUIFieldName(editingField || '');
       
       // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
@@ -1254,17 +1242,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         if (nextFieldIndex !== -1 && (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex)) {
           const nextItem = paginatedItems[nextItemIndex];
           const nextUIField = columnOrder[nextFieldIndex];
-          
-          // Map UI field to database field
-          const uiToDBFieldMap: Record<string, string> = {
-            'description': 'particular',
-            'supplier': 'supplier_name',
-            'customer': 'customer_name'
-          };
-          const nextDBField = uiToDBFieldMap[nextUIField] || nextUIField;
+          const nextDataField = getDataFieldName(nextUIField);
           
           setTimeout(() => {
-            startEdit(nextItem.id, nextDBField, (nextItem as any)[nextDBField]);
+            startEdit(nextItem.id, nextUIField, (nextItem as any)[nextDataField]);
             setIsNavigating(false);
           }, 10);
         } else {
@@ -1277,15 +1258,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       e.preventDefault();
       setIsNavigating(true);
       
-      // Map database field names to UI column keys
-      const dbToUIFieldMap: Record<string, ColumnKey> = {
-        'particular': 'description',
-        'supplier_name': 'supplier',
-        'customer_name': 'customer'
-      };
-      
       // Get the UI field name for current editing field
-      const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+      const currentUIField = getUIFieldName(editingField || '');
       
       // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
@@ -1298,17 +1272,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         // Move to same column, next row
         const nextItem = paginatedItems[currentItemIndex + 1];
         const nextUIField = columnOrder[currentFieldIndex];
-        
-        // Map UI field to database field
-        const uiToDBFieldMap: Record<string, string> = {
-          'description': 'particular',
-          'supplier': 'supplier_name',
-          'customer': 'customer_name'
-        };
-        const nextDBField = uiToDBFieldMap[nextUIField] || nextUIField;
+        const nextDataField = getDataFieldName(nextUIField);
         
         setTimeout(() => {
-          startEdit(nextItem.id, nextDBField, (nextItem as any)[nextDBField]);
+          startEdit(nextItem.id, nextUIField, (nextItem as any)[nextDataField]);
           setIsNavigating(false);
         }, 10);
       } else {
@@ -1318,15 +1285,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       e.preventDefault();
       setIsNavigating(true);
       
-      // Map database field names to UI column keys
-      const dbToUIFieldMap: Record<string, ColumnKey> = {
-        'particular': 'description',
-        'supplier_name': 'supplier',
-        'customer_name': 'customer'
-      };
-      
       // Get the UI field name for current editing field
-      const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+      const currentUIField = getUIFieldName(editingField || '');
       
       // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
@@ -1339,17 +1299,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         // Move to same column, previous row
         const prevItem = paginatedItems[currentItemIndex - 1];
         const prevUIField = columnOrder[currentFieldIndex];
-        
-        // Map UI field to database field
-        const uiToDBFieldMap: Record<string, string> = {
-          'description': 'particular',
-          'supplier': 'supplier_name',
-          'customer': 'customer_name'
-        };
-        const prevDBField = uiToDBFieldMap[prevUIField] || prevUIField;
+        const prevDataField = getDataFieldName(prevUIField);
         
         setTimeout(() => {
-          startEdit(prevItem.id, prevDBField, (prevItem as any)[prevDBField]);
+          startEdit(prevItem.id, prevUIField, (prevItem as any)[prevDataField]);
           setIsNavigating(false);
         }, 10);
       } else {
