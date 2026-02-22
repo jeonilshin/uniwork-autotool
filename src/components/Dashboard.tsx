@@ -1059,6 +1059,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Non-editable columns that should be skipped during navigation
+    const nonEditableColumns: ColumnKey[] = ['date'];
+    
+    // Helper function to find next editable column
+    const findNextEditableColumn = (startIndex: number, direction: 'forward' | 'backward'): number => {
+      let index = startIndex;
+      const step = direction === 'forward' ? 1 : -1;
+      
+      while (index >= 0 && index < columnOrder.length) {
+        if (!nonEditableColumns.includes(columnOrder[index])) {
+          return index;
+        }
+        index += step;
+      }
+      return -1;
+    };
+    
     if (e.key === 'Enter') {
       e.preventDefault();
       saveEdit();
@@ -1092,19 +1109,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           // Save current edit first
           saveEdit(true);
           
-          // Move to next column or next row
+          // Move to next editable column or next row
           let nextItemIndex = currentItemIndex;
-          let nextFieldIndex = currentFieldIndex;
+          let nextFieldIndex = findNextEditableColumn(currentFieldIndex + 1, 'forward');
           
-          if (currentFieldIndex < columnOrder.length - 1) {
-            nextFieldIndex = currentFieldIndex + 1;
-          } else if (currentItemIndex < paginatedItems.length - 1) {
+          if (nextFieldIndex === -1 && currentItemIndex < paginatedItems.length - 1) {
+            // No more columns in this row, go to first editable column of next row
             nextItemIndex = currentItemIndex + 1;
-            nextFieldIndex = 0;
+            nextFieldIndex = findNextEditableColumn(0, 'forward');
           }
           
           // Navigate to next cell
-          if (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex) {
+          if (nextFieldIndex !== -1 && (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex)) {
             const nextItem = paginatedItems[nextItemIndex];
             const nextUIField = columnOrder[nextFieldIndex];
             
@@ -1154,19 +1170,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           // Save current edit first
           saveEdit(true);
           
-          // Move to previous column or previous row
+          // Move to previous editable column or previous row
           let prevItemIndex = currentItemIndex;
-          let prevFieldIndex = currentFieldIndex;
+          let prevFieldIndex = findNextEditableColumn(currentFieldIndex - 1, 'backward');
           
-          if (currentFieldIndex > 0) {
-            prevFieldIndex = currentFieldIndex - 1;
-          } else if (currentItemIndex > 0) {
+          if (prevFieldIndex === -1 && currentItemIndex > 0) {
+            // No more columns in this row, go to last editable column of previous row
             prevItemIndex = currentItemIndex - 1;
-            prevFieldIndex = columnOrder.length - 1;
+            prevFieldIndex = findNextEditableColumn(columnOrder.length - 1, 'backward');
           }
           
           // Navigate to previous cell
-          if (prevItemIndex !== currentItemIndex || prevFieldIndex !== currentFieldIndex) {
+          if (prevFieldIndex !== -1 && (prevItemIndex !== currentItemIndex || prevFieldIndex !== currentFieldIndex)) {
             const prevItem = paginatedItems[prevItemIndex];
             const prevUIField = columnOrder[prevFieldIndex];
             
@@ -1213,28 +1228,30 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         
         // Determine next cell
         let nextItemIndex = currentItemIndex;
-        let nextFieldIndex = currentFieldIndex;
+        let nextFieldIndex = -1;
         
         if (e.shiftKey) {
-          // Shift+Tab: go backwards
-          if (currentFieldIndex > 0) {
-            nextFieldIndex = currentFieldIndex - 1;
-          } else if (currentItemIndex > 0) {
+          // Shift+Tab: go backwards to previous editable column
+          nextFieldIndex = findNextEditableColumn(currentFieldIndex - 1, 'backward');
+          
+          if (nextFieldIndex === -1 && currentItemIndex > 0) {
+            // No more columns in this row, go to last editable column of previous row
             nextItemIndex = currentItemIndex - 1;
-            nextFieldIndex = columnOrder.length - 1;
+            nextFieldIndex = findNextEditableColumn(columnOrder.length - 1, 'backward');
           }
         } else {
-          // Tab: go forwards
-          if (currentFieldIndex < columnOrder.length - 1) {
-            nextFieldIndex = currentFieldIndex + 1;
-          } else if (currentItemIndex < paginatedItems.length - 1) {
+          // Tab: go forwards to next editable column
+          nextFieldIndex = findNextEditableColumn(currentFieldIndex + 1, 'forward');
+          
+          if (nextFieldIndex === -1 && currentItemIndex < paginatedItems.length - 1) {
+            // No more columns in this row, go to first editable column of next row
             nextItemIndex = currentItemIndex + 1;
-            nextFieldIndex = 0;
+            nextFieldIndex = findNextEditableColumn(0, 'forward');
           }
         }
         
         // Navigate to next cell
-        if (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex) {
+        if (nextFieldIndex !== -1 && (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex)) {
           const nextItem = paginatedItems[nextItemIndex];
           const nextUIField = columnOrder[nextFieldIndex];
           
