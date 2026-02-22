@@ -1058,12 +1058,137 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setEditValue('');
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       saveEdit();
     } else if (e.key === 'Escape') {
       cancelEdit();
+    } else if (e.key === 'ArrowRight') {
+      // Check if cursor is at the end of the input
+      const input = e.currentTarget;
+      const cursorPos = input.selectionStart || 0;
+      const textLength = input.value.length;
+      
+      if (cursorPos === textLength) {
+        e.preventDefault();
+        setIsNavigating(true);
+        
+        // Map database field names to UI column keys
+        const dbToUIFieldMap: Record<string, ColumnKey> = {
+          'particular': 'description',
+          'supplier_name': 'supplier',
+          'customer_name': 'customer'
+        };
+        
+        // Get the UI field name for current editing field
+        const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+        
+        // Find current position
+        const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
+        const currentFieldIndex = columnOrder.indexOf(currentUIField);
+        
+        if (currentItemIndex !== -1 && currentFieldIndex !== -1) {
+          // Save current edit first
+          saveEdit(true);
+          
+          // Move to next column or next row
+          let nextItemIndex = currentItemIndex;
+          let nextFieldIndex = currentFieldIndex;
+          
+          if (currentFieldIndex < columnOrder.length - 1) {
+            nextFieldIndex = currentFieldIndex + 1;
+          } else if (currentItemIndex < paginatedItems.length - 1) {
+            nextItemIndex = currentItemIndex + 1;
+            nextFieldIndex = 0;
+          }
+          
+          // Navigate to next cell
+          if (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex) {
+            const nextItem = paginatedItems[nextItemIndex];
+            const nextUIField = columnOrder[nextFieldIndex];
+            
+            // Map UI field to database field
+            const uiToDBFieldMap: Record<string, string> = {
+              'description': 'particular',
+              'supplier': 'supplier_name',
+              'customer': 'customer_name'
+            };
+            const nextDBField = uiToDBFieldMap[nextUIField] || nextUIField;
+            
+            setTimeout(() => {
+              startEdit(nextItem.id, nextDBField, (nextItem as any)[nextDBField]);
+              setIsNavigating(false);
+            }, 10);
+          } else {
+            setIsNavigating(false);
+          }
+        } else {
+          setIsNavigating(false);
+        }
+      }
+    } else if (e.key === 'ArrowLeft') {
+      // Check if cursor is at the beginning of the input
+      const input = e.currentTarget;
+      const cursorPos = input.selectionStart || 0;
+      
+      if (cursorPos === 0) {
+        e.preventDefault();
+        setIsNavigating(true);
+        
+        // Map database field names to UI column keys
+        const dbToUIFieldMap: Record<string, ColumnKey> = {
+          'particular': 'description',
+          'supplier_name': 'supplier',
+          'customer_name': 'customer'
+        };
+        
+        // Get the UI field name for current editing field
+        const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+        
+        // Find current position
+        const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
+        const currentFieldIndex = columnOrder.indexOf(currentUIField);
+        
+        if (currentItemIndex !== -1 && currentFieldIndex !== -1) {
+          // Save current edit first
+          saveEdit(true);
+          
+          // Move to previous column or previous row
+          let prevItemIndex = currentItemIndex;
+          let prevFieldIndex = currentFieldIndex;
+          
+          if (currentFieldIndex > 0) {
+            prevFieldIndex = currentFieldIndex - 1;
+          } else if (currentItemIndex > 0) {
+            prevItemIndex = currentItemIndex - 1;
+            prevFieldIndex = columnOrder.length - 1;
+          }
+          
+          // Navigate to previous cell
+          if (prevItemIndex !== currentItemIndex || prevFieldIndex !== currentFieldIndex) {
+            const prevItem = paginatedItems[prevItemIndex];
+            const prevUIField = columnOrder[prevFieldIndex];
+            
+            // Map UI field to database field
+            const uiToDBFieldMap: Record<string, string> = {
+              'description': 'particular',
+              'supplier': 'supplier_name',
+              'customer': 'customer_name'
+            };
+            const prevDBField = uiToDBFieldMap[prevUIField] || prevUIField;
+            
+            setTimeout(() => {
+              startEdit(prevItem.id, prevDBField, (prevItem as any)[prevDBField]);
+              setIsNavigating(false);
+            }, 10);
+          } else {
+            setIsNavigating(false);
+          }
+        } else {
+          setIsNavigating(false);
+        }
+      }
     } else if (e.key === 'Tab') {
       e.preventDefault();
       setIsNavigating(true);
