@@ -1068,9 +1068,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       e.preventDefault();
       setIsNavigating(true);
       
+      // Map database field names to UI column keys
+      const dbToUIFieldMap: Record<string, ColumnKey> = {
+        'particular': 'description',
+        'supplier_name': 'supplier',
+        'customer_name': 'customer'
+      };
+      
+      // Get the UI field name for current editing field
+      const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+      
       // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
-      const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
+      const currentFieldIndex = columnOrder.indexOf(currentUIField);
       
       if (currentItemIndex !== -1 && currentFieldIndex !== -1) {
         // Save current edit first
@@ -1101,29 +1111,43 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         // Navigate to next cell
         if (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex) {
           const nextItem = paginatedItems[nextItemIndex];
-          const nextField = columnOrder[nextFieldIndex];
-          const fieldMap: Record<string, string> = {
+          const nextUIField = columnOrder[nextFieldIndex];
+          
+          // Map UI field to database field
+          const uiToDBFieldMap: Record<string, string> = {
             'description': 'particular',
             'supplier': 'supplier_name',
             'customer': 'customer_name'
           };
-          const actualField = fieldMap[nextField] || nextField;
+          const nextDBField = uiToDBFieldMap[nextUIField] || nextUIField;
           
           setTimeout(() => {
-            startEdit(nextItem.id, nextField, (nextItem as any)[actualField]);
+            startEdit(nextItem.id, nextDBField, (nextItem as any)[nextDBField]);
             setIsNavigating(false);
           }, 10);
         } else {
           setIsNavigating(false);
         }
+      } else {
+        setIsNavigating(false);
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setIsNavigating(true);
       
+      // Map database field names to UI column keys
+      const dbToUIFieldMap: Record<string, ColumnKey> = {
+        'particular': 'description',
+        'supplier_name': 'supplier',
+        'customer_name': 'customer'
+      };
+      
+      // Get the UI field name for current editing field
+      const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+      
       // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
-      const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
+      const currentFieldIndex = columnOrder.indexOf(currentUIField);
       
       if (currentItemIndex !== -1 && currentItemIndex < paginatedItems.length - 1) {
         // Save current edit first
@@ -1131,16 +1155,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         
         // Move to same column, next row
         const nextItem = paginatedItems[currentItemIndex + 1];
-        const nextField = columnOrder[currentFieldIndex];
-        const fieldMap: Record<string, string> = {
+        const nextUIField = columnOrder[currentFieldIndex];
+        
+        // Map UI field to database field
+        const uiToDBFieldMap: Record<string, string> = {
           'description': 'particular',
           'supplier': 'supplier_name',
           'customer': 'customer_name'
         };
-        const actualField = fieldMap[nextField] || nextField;
+        const nextDBField = uiToDBFieldMap[nextUIField] || nextUIField;
         
         setTimeout(() => {
-          startEdit(nextItem.id, nextField, (nextItem as any)[actualField]);
+          startEdit(nextItem.id, nextDBField, (nextItem as any)[nextDBField]);
           setIsNavigating(false);
         }, 10);
       } else {
@@ -1150,9 +1176,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       e.preventDefault();
       setIsNavigating(true);
       
+      // Map database field names to UI column keys
+      const dbToUIFieldMap: Record<string, ColumnKey> = {
+        'particular': 'description',
+        'supplier_name': 'supplier',
+        'customer_name': 'customer'
+      };
+      
+      // Get the UI field name for current editing field
+      const currentUIField = dbToUIFieldMap[editingField || ''] || (editingField as ColumnKey);
+      
       // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
-      const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
+      const currentFieldIndex = columnOrder.indexOf(currentUIField);
       
       if (currentItemIndex > 0) {
         // Save current edit first
@@ -1160,16 +1196,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         
         // Move to same column, previous row
         const prevItem = paginatedItems[currentItemIndex - 1];
-        const prevField = columnOrder[currentFieldIndex];
-        const fieldMap: Record<string, string> = {
+        const prevUIField = columnOrder[currentFieldIndex];
+        
+        // Map UI field to database field
+        const uiToDBFieldMap: Record<string, string> = {
           'description': 'particular',
           'supplier': 'supplier_name',
           'customer': 'customer_name'
         };
-        const actualField = fieldMap[prevField] || prevField;
+        const prevDBField = uiToDBFieldMap[prevUIField] || prevUIField;
         
         setTimeout(() => {
-          startEdit(prevItem.id, prevField, (prevItem as any)[actualField]);
+          startEdit(prevItem.id, prevDBField, (prevItem as any)[prevDBField]);
           setIsNavigating(false);
         }, 10);
       } else {
