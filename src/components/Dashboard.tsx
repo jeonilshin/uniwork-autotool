@@ -1020,21 +1020,27 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     try {
       let updateData: any = {};
       
+      // Map UI field names to database field names
+      const uiToDBFieldMap: Record<string, string> = {
+        'description': 'particular',
+        'supplier': 'supplier_name',
+        'customer': 'customer_name'
+      };
+      
+      const dbFieldName = uiToDBFieldMap[editingField] || editingField;
+      
       // Parse value based on field type
-      if (['qty', 'cost', 'freight_cost', 'sale'].includes(editingField)) {
+      if (['qty', 'cost', 'freight_cost', 'sale'].includes(dbFieldName)) {
         const numValue = parseFloat(editValue.replace(/,/g, ''));
         if (isNaN(numValue)) {
           alert('Please enter a valid number');
           return;
         }
-        updateData[editingField] = numValue;
-      } else if (editingField === 'status') {
-        updateData[editingField] = editValue as ItemStatus;
-      } else if (editingField === 'description') {
-        // Map 'description' UI field to 'particular' database field
-        updateData['particular'] = editValue;
+        updateData[dbFieldName] = numValue;
+      } else if (dbFieldName === 'status') {
+        updateData[dbFieldName] = editValue as ItemStatus;
       } else {
-        updateData[editingField] = editValue;
+        updateData[dbFieldName] = editValue;
       }
       
       const updated = await updateItem(editingItemId, updateData);
@@ -1525,7 +1531,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       case 'supplier':
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
-            {editingItemId === item.id && editingField === 'supplier_name' ? (
+            {editingItemId === item.id && editingField === 'supplier' ? (
               <input 
                 type="text" 
                 value={editValue} 
@@ -1541,11 +1547,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
-                  startEdit(item.id, 'supplier_name', item.supplier_name);
+                  startEdit(item.id, 'supplier', item.supplier_name);
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  startEdit(item.id, 'supplier_name', item.supplier_name);
+                  startEdit(item.id, 'supplier', item.supplier_name);
                 }}
                 className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'supplier_name') ? 'bg-yellow-200' : hasMatch(item.id, 'supplier_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
               >
@@ -1591,7 +1597,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       case 'customer':
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
-            {editingItemId === item.id && editingField === 'customer_name' ? (
+            {editingItemId === item.id && editingField === 'customer' ? (
               <input 
                 type="text" 
                 value={editValue} 
@@ -1607,11 +1613,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
-                  startEdit(item.id, 'customer_name', item.customer_name);
+                  startEdit(item.id, 'customer', item.customer_name);
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  startEdit(item.id, 'customer_name', item.customer_name);
+                  startEdit(item.id, 'customer', item.customer_name);
                 }}
                 className={`cursor-pointer px-2 py-1 rounded ${isCurrentMatch(item.id, 'customer_name') ? 'bg-yellow-200' : hasMatch(item.id, 'customer_name') ? 'bg-blue-100' : 'hover:bg-blue-100'}`}
               >
