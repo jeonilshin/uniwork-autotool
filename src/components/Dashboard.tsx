@@ -172,6 +172,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  const [isNavigating, setIsNavigating] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<FilterOptions>({ status: 'all', freightType: 'all', inquired: 'all' });
@@ -1013,7 +1014,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setEditValue(valueToEdit);
   }, []);
 
-  const saveEdit = useCallback(async () => {
+  const saveEdit = useCallback(async (skipClear = false) => {
     if (!editingItemId || !editingField) return;
     
     try {
@@ -1039,9 +1040,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const updated = await updateItem(editingItemId, updateData);
       setItems(prev => prev.map(item => (item.id === editingItemId ? updated : item)));
       
-      setEditingItemId(null);
-      setEditingField(null);
-      setEditValue('');
+      if (!skipClear) {
+        setEditingItemId(null);
+        setEditingField(null);
+        setEditValue('');
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to update:', msg, error);
@@ -1063,28 +1066,114 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       cancelEdit();
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      saveEdit();
+      setIsNavigating(true);
       
-      // Move to next editable cell
+      // Find current position
       const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
       const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
       
       if (currentItemIndex !== -1 && currentFieldIndex !== -1) {
-        // Try next column in same row
-        if (currentFieldIndex < columnOrder.length - 1) {
-          const nextField = columnOrder[currentFieldIndex + 1];
-          const nextItem = paginatedItems[currentItemIndex];
-          setTimeout(() => {
-            startEdit(nextItem.id, nextField, (nextItem as any)[nextField === 'description' ? 'particular' : nextField === 'supplier' ? 'supplier_name' : nextField === 'customer' ? 'customer_name' : nextField]);
-          }, 50);
-        } else if (currentItemIndex < paginatedItems.length - 1) {
-          // Move to first column of next row
-          const nextItem = paginatedItems[currentItemIndex + 1];
-          const firstField = columnOrder[0];
-          setTimeout(() => {
-            startEdit(nextItem.id, firstField, (nextItem as any)[firstField === 'description' ? 'particular' : firstField === 'supplier' ? 'supplier_name' : firstField === 'customer' ? 'customer_name' : firstField]);
-          }, 50);
+        // Save current edit first
+        saveEdit(true);
+        
+        // Determine next cell
+        let nextItemIndex = currentItemIndex;
+        let nextFieldIndex = currentFieldIndex;
+        
+        if (e.shiftKey) {
+          // Shift+Tab: go backwards
+          if (currentFieldIndex > 0) {
+            nextFieldIndex = currentFieldIndex - 1;
+          } else if (currentItemIndex > 0) {
+            nextItemIndex = currentItemIndex - 1;
+            nextFieldIndex = columnOrder.length - 1;
+          }
+        } else {
+          // Tab: go forwards
+          if (currentFieldIndex < columnOrder.length - 1) {
+            nextFieldIndex = currentFieldIndex + 1;
+          } else if (currentItemIndex < paginatedItems.length - 1) {
+            nextItemIndex = currentItemIndex + 1;
+            nextFieldIndex = 0;
+          }
         }
+        
+        // Navigate to next cell
+        if (nextItemIndex !== currentItemIndex || nextFieldIndex !== currentFieldIndex) {
+          const nextItem = paginatedItems[nextItemIndex];
+          const nextField = columnOrder[nextFieldIndex];
+          const fieldMap: Record<string, string> = {
+            'description': 'particular',
+            'supplier': 'supplier_name',
+            'customer': 'customer_name'
+          };
+          const actualField = fieldMap[nextField] || nextField;
+          
+          setTimeout(() => {
+            startEdit(nextItem.id, nextField, (nextItem as any)[actualField]);
+            setIsNavigating(false);
+          }, 10);
+        } else {
+          setIsNavigating(false);
+        }
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setIsNavigating(true);
+      
+      // Find current position
+      const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
+      const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
+      
+      if (currentItemIndex !== -1 && currentItemIndex < paginatedItems.length - 1) {
+        // Save current edit first
+        saveEdit(true);
+        
+        // Move to same column, next row
+        const nextItem = paginatedItems[currentItemIndex + 1];
+        const nextField = columnOrder[currentFieldIndex];
+        const fieldMap: Record<string, string> = {
+          'description': 'particular',
+          'supplier': 'supplier_name',
+          'customer': 'customer_name'
+        };
+        const actualField = fieldMap[nextField] || nextField;
+        
+        setTimeout(() => {
+          startEdit(nextItem.id, nextField, (nextItem as any)[actualField]);
+          setIsNavigating(false);
+        }, 10);
+      } else {
+        setIsNavigating(false);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setIsNavigating(true);
+      
+      // Find current position
+      const currentItemIndex = paginatedItems.findIndex(item => item.id === editingItemId);
+      const currentFieldIndex = columnOrder.indexOf(editingField as ColumnKey);
+      
+      if (currentItemIndex > 0) {
+        // Save current edit first
+        saveEdit(true);
+        
+        // Move to same column, previous row
+        const prevItem = paginatedItems[currentItemIndex - 1];
+        const prevField = columnOrder[currentFieldIndex];
+        const fieldMap: Record<string, string> = {
+          'description': 'particular',
+          'supplier': 'supplier_name',
+          'customer': 'customer_name'
+        };
+        const actualField = fieldMap[prevField] || prevField;
+        
+        setTimeout(() => {
+          startEdit(prevItem.id, prevField, (prevItem as any)[actualField]);
+          setIsNavigating(false);
+        }, 10);
+      } else {
+        setIsNavigating(false);
       }
     }
   }, [saveEdit, cancelEdit, editingItemId, editingField, paginatedItems, columnOrder, startEdit]);
@@ -1106,7 +1195,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'brand' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1129,7 +1228,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'part_number' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1152,7 +1261,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'description' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1175,7 +1294,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-right border-r border-gray-200" style={{width: `${width}px`}}>
             {editingItemId === item.id && editingField === 'cost' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1198,7 +1327,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 font-medium border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'unit' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1221,7 +1360,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-right text-orange-600 border-r border-gray-200" style={{width: `${width}px`}}>
             {editingItemId === item.id && editingField === 'discount' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1244,7 +1393,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'supplier_name' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1267,7 +1426,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-right border-r border-gray-200" style={{width: `${width}px`}}>
             {editingItemId === item.id && editingField === 'sale' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded text-right focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1290,7 +1459,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'customer_name' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1313,7 +1492,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-center text-gray-900 border-r border-gray-200" style={{width: `${width}px`}}>
             {editingItemId === item.id && editingField === 'qty' ? (
-              <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded text-center focus:outline-none" />
+              <input 
+                type="number" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded text-center focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
@@ -1336,7 +1525,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return (
           <td key={colKey} className="p-2 text-gray-900 border-r border-gray-200" style={{width: `${width}px`}} id={cellId}>
             {editingItemId === item.id && editingField === 'remark' ? (
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} autoFocus className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" />
+              <input 
+                type="text" 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                onBlur={() => {
+                  if (!isNavigating) saveEdit();
+                }} 
+                onKeyDown={handleKeyDown} 
+                autoFocus 
+                className="w-full px-2 py-1 border border-emerald-500 rounded focus:outline-none" 
+              />
             ) : (
               <div 
                 onClick={(e) => {
