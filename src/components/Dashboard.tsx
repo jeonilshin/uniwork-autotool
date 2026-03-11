@@ -39,35 +39,88 @@ const FreightIcon = ({ type, className }: { type: FreightType; className?: strin
 };
 
 const ScreenshotProtection = ({ children, enabled }: { children: React.ReactNode; enabled: boolean }) => {
+  const [isBlurred, setIsBlurred] = React.useState(false);
+
   useEffect(() => {
     if (!enabled) return;
+    
     const handleContextMenu = (e: MouseEvent) => { e.preventDefault(); };
+    
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen' || (e.ctrlKey && e.shiftKey && e.key === 'S') || (e.metaKey && e.shiftKey && ['3','4','5'].includes(e.key))) {
-        e.preventDefault(); alert('Screenshots are not allowed');
+      // Detect screenshot shortcuts
+      const isScreenshot = 
+        e.key === 'PrintScreen' || 
+        (e.ctrlKey && e.shiftKey && e.key === 'S') || 
+        (e.metaKey && e.shiftKey && ['3','4','5'].includes(e.key)) ||
+        (e.metaKey && e.shiftKey && e.key === 'Control'); // Mac screenshot activation
+      
+      if (isScreenshot) {
+        e.preventDefault();
+        setIsBlurred(true);
+        alert('Screenshots are not allowed');
+        
+        // Keep blurred for 2 seconds
+        setTimeout(() => {
+          setIsBlurred(false);
+        }, 2000);
       }
     };
+    
     const handleVisibilityChange = () => {
-      const overlay = document.getElementById('screenshot-overlay');
-      if (overlay) overlay.style.display = document.hidden ? 'flex' : 'none';
+      // Blur content when tab is hidden (user might be taking screenshot)
+      if (document.hidden) {
+        setIsBlurred(true);
+      } else {
+        // Unblur after a short delay when tab becomes visible again
+        setTimeout(() => {
+          setIsBlurred(false);
+        }, 500);
+      }
     };
+    
+    // Detect when window loses focus (might indicate screenshot tool activation)
+    const handleBlur = () => {
+      setIsBlurred(true);
+      // Unblur after 1 second
+      setTimeout(() => {
+        setIsBlurred(false);
+      }, 1000);
+    };
+    
+    const handleFocus = () => {
+      setIsBlurred(false);
+    };
+    
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [enabled]);
 
   if (!enabled) return <>{children}</>;
+  
   return (
     <div className="relative select-none" style={{ WebkitUserSelect: 'none', userSelect: 'none' }}>
-      {children}
-      <div id="screenshot-overlay" className="fixed inset-0 bg-white z-[9999] items-center justify-center hidden">
-        <p className="text-gray-900 text-xl">Content hidden for security</p>
+      <div className={`transition-all duration-200 ${isBlurred ? 'blur-xl' : ''}`}>
+        {children}
       </div>
+      {isBlurred && (
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center pointer-events-none">
+          <div className="bg-white px-8 py-4 rounded-lg shadow-2xl">
+            <p className="text-gray-900 text-xl font-semibold">🔒 Content Protected</p>
+            <p className="text-gray-600 text-sm mt-2">Screenshots are not allowed</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
