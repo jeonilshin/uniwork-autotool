@@ -56,6 +56,10 @@ const ScreenshotProtection = ({ children, enabled }: { children: React.ReactNode
         (e.ctrlKey && e.shiftKey && e.key === 'S') ||
         // Mac screenshots: Cmd+Shift+3/4/5
         (e.metaKey && e.shiftKey && ['3','4','5'].includes(e.key)) ||
+        // Mac screenshot to clipboard: Cmd+Control+Shift+4
+        (e.metaKey && e.ctrlKey && e.shiftKey && e.key === '4') ||
+        // Mac screenshot to clipboard: Cmd+Control+Shift+3 (full screen to clipboard)
+        (e.metaKey && e.ctrlKey && e.shiftKey && e.key === '3') ||
         // Detect when Windows key is pressed with Shift (Win+Shift+S pattern)
         ((e.key === 'Meta' || e.key === 'OS') && e.shiftKey);
       
