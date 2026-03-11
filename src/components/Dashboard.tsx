@@ -50,9 +50,14 @@ const ScreenshotProtection = ({ children, enabled }: { children: React.ReactNode
       // Detect screenshot shortcuts
       const isScreenshot = 
         e.key === 'PrintScreen' || 
-        (e.ctrlKey && e.shiftKey && e.key === 'S') || 
+        // Windows Snipping Tool: Win+Shift+S (detected as Meta+Shift+S on some systems)
+        ((e.metaKey || e.key === 'Meta') && e.shiftKey && e.key === 'S') ||
+        // Alternative Windows detection
+        (e.ctrlKey && e.shiftKey && e.key === 'S') ||
+        // Mac screenshots: Cmd+Shift+3/4/5
         (e.metaKey && e.shiftKey && ['3','4','5'].includes(e.key)) ||
-        (e.metaKey && e.shiftKey && e.key === 'Control'); // Mac screenshot activation
+        // Detect when Windows key is pressed with Shift (Win+Shift+S pattern)
+        ((e.key === 'Meta' || e.key === 'OS') && e.shiftKey);
       
       if (isScreenshot) {
         e.preventDefault();
